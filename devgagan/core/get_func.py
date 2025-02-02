@@ -17,7 +17,6 @@ from pyrogram.types import Message
 from config import MONGO_DB as MONGODB_CONNECTION_STRING, LOG_GROUP, SECONDS
 import cv2
 from telethon import events, Button
-    
 
 # ------------- PDF WATERMARK IMPORTS --------------
 # Will give after 200 star on my repo or 100+ followers ...
@@ -34,13 +33,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
         msg_link = msg_link.split("?single")[0]
     msg_id = int(msg_link.split("/")[-1]) + int(i)
 
-    
     if 't.me/c/' in msg_link or 't.me/b/' in msg_link:
         parts = msg_link.split("/")
         if 't.me/b/' not in msg_link:
-            chat = int('-100' + str(parts[parts.index('c') + 1])) # topic group/subgroup support enabled
+            chat = int('-100' + str(parts[parts.index('c') + 1]))  # topic group/subgroup support enabled
         else:
-            chat = msg_link.split("/")[-2]       
+            chat = msg_link.split("/")[-2]
         file = ""
         try:
             chatx = message.chat.id
@@ -52,12 +50,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             if msg.empty is not None:
                 return None                          
             if msg.media:
-                snt_msgs = [] #AutoDeleter
+                snt_msgs = []  # AutoDeleter
                 if msg.media == MessageMediaType.WEB_PAGE:
                     target_chat_id = user_chat_ids.get(chatx, chatx)
                     edit = await app.edit_message_text(target_chat_id, edit_id, "Cloning...")
                     devgaganin = await app.send_message(sender, msg.text.markdown)
-                    snt_msgs.append(devgaganin) #AutoDeleter
+                    snt_msgs.append(devgaganin)  # AutoDeleter
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -66,7 +64,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     await devgaganin.copy(LOG_GROUP)                  
                     await edit.delete()
                     #----------AutoDelete----------
-                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode=ParseMode.MARKDOWN)
+                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
                         try:
@@ -76,12 +74,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
                     #-----------------------------
             if not msg.media:
-                snt_msgs = [] #AutoDeleter
+                snt_msgs = []  # AutoDeleter
                 if msg.text:
                     target_chat_id = user_chat_ids.get(chatx, chatx)
                     edit = await app.edit_message_text(target_chat_id, edit_id, "Cloning...")
                     devgaganin = await app.send_message(sender, msg.text.markdown)
-                    snt_msgs.append(devgaganin) #AutoDeleter
+                    snt_msgs.append(devgaganin)  # AutoDeleter
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -89,7 +87,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
-                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode=ParseMode.MARKDOWN)
+                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
                         try:
@@ -102,7 +100,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             file = await userbot.download_media(
                 msg,
                 progress=progress_bar,
-                progress_args=("**__Downloading: __**",edit,time.time()))
+                progress_args=("**__Downloading: __**", edit, time.time()))
             
             custom_rename_tag = get_user_rename_preference(chatx)
             last_dot_index = str(file).rfind('.')
@@ -112,7 +110,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if ggn_ext.lower() == 'mov':
                         original_file_name = str(file)[:last_dot_index]
                         file_extension = ggn_ext.lower()
-                        if file_extension == 'mov': # fixed mov
+                        if file_extension == 'mov':  # fixed mov
                             file_extension = 'mp4'
                     else:
                         original_file_name = str(file)[:last_dot_index]
@@ -140,16 +138,16 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await edit.edit('Trying to Uplaod ...')
             
             if msg.media == MessageMediaType.VIDEO and msg.video.mime_type in ["video/mp4", "video/x-matroska"]:
-                snt_msgs = [] #AutoDeleter
+                snt_msgs = []  # AutoDeleter
 
                 metadata = video_metadata(file)      
-                width= metadata['width']
-                height= metadata['height']
-                duration= metadata['duration']
+                width = metadata['width']
+                height = metadata['height']
+                duration = metadata['duration']
 
                 if duration <= 300:
                     devgaganin = await app.send_video(chat_id=sender, video=file, caption=caption, height=height, width=width, duration=duration, thumb=None, progress=progress_bar, progress_args=('**UPLOADING:**\n', edit, time.time()))
-                    snt_msgs.append(devgaganin) #AutoDeleter
+                    snt_msgs.append(devgaganin)  # AutoDeleter
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -157,7 +155,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
-                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode=ParseMode.MARKDOWN)
+                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
                         try:
@@ -191,9 +189,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         thumb=thumb_path,
                         progress=progress_bar,
                         progress_args=(
-                        '**__Uploading...__**',
-                        edit,
-                        time.time()
+                            '**__Uploading...__**',
+                            edit,
+                            time.time()
                         )
                        )
                     if msg.pinned_message:
@@ -227,6 +225,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         await devgaganin.pin()                
                 await devgaganin.copy(LOG_GROUP)
             else:
+                # --- Modified branch: Preserve the original media type ---
                 thumb_path = thumbnail(chatx)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -236,36 +235,33 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
                 caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
-                file_extension = file_extension.lower() # fixed all video document files sent as video files
-                video_extensions = {
-    'mkv', 'mp4', 'webm', 'mpe4', 'mpeg', 'ts', 'avi', 'flv', 'mov', 
-    'm4v', '3gp', '3g2', 'wmv', 'vob', 'ogv', 'ogx', 'qt', 'f4v', 
-    'f4p', 'f4a', 'f4b', 'dat', 'rm', 'rmvb', 'asf', 'amv', 'divx'
-                }
-
+    
                 target_chat_id = user_chat_ids.get(chatx, chatx)
                 try:
-                    if file_extension in video_extensions:
-                        metadata = video_metadata(file)
-                        width= metadata['width']
-                        height= metadata['height']
-                        duration= metadata['duration']
-                        thumb_path = await screenshot(file, duration, chatx)
-                        devgaganin = await app.send_video(
+                    if msg.media == MessageMediaType.DOCUMENT:
+                        devgaganin = await app.send_document(
                             chat_id=target_chat_id,
-                            video=file,
+                            document=file,
                             caption=caption,
-                            supports_streaming=True,
-                            height=height,
-                            width=width,
-                            duration=duration,
                             thumb=thumb_path,
                             progress=progress_bar,
-                            progress_args=(
-                                '**Uploading...**',
-                                edit,
-                                time.time()
-                            )
+                            progress_args=('**Uploading...**', edit, time.time())
+                        )
+                    elif msg.media == MessageMediaType.AUDIO:
+                        devgaganin = await app.send_audio(
+                            chat_id=target_chat_id,
+                            audio=file,
+                            caption=caption,
+                            progress=progress_bar,
+                            progress_args=('**Uploading...**', edit, time.time())
+                        )
+                    elif msg.media == MessageMediaType.VOICE:
+                        devgaganin = await app.send_voice(
+                            chat_id=target_chat_id,
+                            voice=file,
+                            caption=caption,
+                            progress=progress_bar,
+                            progress_args=('**Uploading...**', edit, time.time())
                         )
                     else:
                         devgaganin = await app.send_document(
@@ -274,14 +270,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             caption=caption,
                             thumb=thumb_path,
                             progress=progress_bar,
-                            progress_args=(
-                                '**Uploading...**',
-                                edit,
-                                time.time()
-                            )
+                            progress_args=('**Uploading...**', edit, time.time())
                         )
-
-                    await devgaganin.copy(LOG_GROUP)
                 except:
                     await app.edit_message_text(sender, edit_id, "The bot is not an admin in the specified chat.") 
                 
@@ -303,7 +293,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await edit.delete()
         except Exception as e:
             await app.edit_message_text(sender, edit_id, f'Failed to save: `{msg_link}`\n\nError: {str(e)}')
-
 
 async def copy_message_with_chat_id(client, sender, chat_id, message_id):
     # Get the user's set chat ID, if available; otherwise, use the original sender ID
@@ -360,7 +349,6 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
         await client.send_message(sender, f"Make Bot admin in your Channel - {target_chat_id} and restart the process after /cancel")
 
 # -------------- FFMPEG CODES ---------------
-
 # ------------------------ Button Mode Editz FOR SETTINGS ----------------------------
 
 # MongoDB database name and collection name
@@ -487,7 +475,6 @@ def get_user_caption_preference(user_id):
     return user_caption_preferences.get(str(user_id), '')
 
 # Initialize the dictionary to store user sessions
-
 sessions = {}
 
 SET_PIC = "settings.jpg"
@@ -579,7 +566,6 @@ async def callback_query_handler(event):
         except FileNotFoundError:
             await event.respond("No thumbnail found to remove.")
 
-
 @gf.on(events.NewMessage(func=lambda e: e.sender_id in pending_photos))
 async def save_thumbnail(event):
     user_id = event.sender_id  # Use event.sender_id as user_id
@@ -590,13 +576,10 @@ async def save_thumbnail(event):
             os.remove(f'{user_id}.jpg')
         os.rename(temp_path, f'./{user_id}.jpg')
         await event.respond('Thumbnail saved successfully!')
-
     else:
         await event.respond('Please send a photo... Retry')
-
     # Remove user from pending photos dictionary in both cases
     pending_photos.pop(user_id, None)
-
 
 @gf.on(events.NewMessage)
 async def handle_user_input(event):
