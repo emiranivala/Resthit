@@ -64,7 +64,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     await devgaganin.copy(LOG_GROUP)                  
                     await edit.delete()
                     #----------AutoDelete----------
-                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
+                    await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
                         try:
@@ -87,7 +87,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
-                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
+                    await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
                         try:
@@ -155,7 +155,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
-                    await message.reply_text(f"Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
+                    await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
                         try:
@@ -193,7 +193,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             edit,
                             time.time()
                         )
-                       )
+                    )
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -201,8 +201,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                 except:
-                    await app.edit_message_text(sender, edit_id, "The bot is not an admin in the specified chat...")
-
+                    await app.edit_message_text(sender, edit_id, ".")
                 os.remove(file)
                     
             elif msg.media == MessageMediaType.PHOTO:
@@ -273,8 +272,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             progress_args=('**Uploading...**', edit, time.time())
                         )
                 except:
-                    await app.edit_message_text(sender, edit_id, "The bot is not an admin in the specified chat.") 
-                
+                    await app.edit_message_text(sender, edit_id, ".")
                 os.remove(file)
                         
             await edit.delete()
@@ -283,7 +281,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await app.edit_message_text(sender, edit_id, "Have you joined the channel?")
             return
         except Exception as e:
-            await app.edit_message_text(sender, edit_id, f'Failed to save: `{msg_link}`\n\nError: {str(e)}')       
+            await app.edit_message_text(sender, edit_id, ".")
         
     else:
         edit = await app.edit_message_text(sender, edit_id, "Cloning...")
@@ -292,7 +290,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await copy_message_with_chat_id(app, sender, chat, msg_id) 
             await edit.delete()
         except Exception as e:
-            await app.edit_message_text(sender, edit_id, f'Failed to save: `{msg_link}`\n\nError: {str(e)}')
+            await app.edit_message_text(sender, edit_id, ".")
 
 async def copy_message_with_chat_id(client, sender, chat_id, message_id):
     # Get the user's set chat ID, if available; otherwise, use the original sender ID
@@ -344,9 +342,8 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
                 await result.pin()
 
     except Exception as e:
-        error_message = f"Error occurred while sending message to chat ID {target_chat_id}: {str(e)}"
-        await client.send_message(sender, error_message)
-        await client.send_message(sender, f"Make Bot admin in your Channel - {target_chat_id} and restart the process after /cancel")
+        await client.send_message(sender, ".")
+        await client.send_message(sender, ".")
 
 # -------------- FFMPEG CODES ---------------
 # ------------------------ Button Mode Editz FOR SETTINGS ----------------------------
@@ -557,7 +554,7 @@ async def callback_query_handler(event):
                 os.remove(thumbnail_path)
             await event.respond("✅ Reset successfully, to logout click /logout")
         except Exception as e:
-            await event.respond(f"Error clearing delete list: {e}")
+            await event.respond(".")
     
     elif event.data == b'remthumb':
         try:
