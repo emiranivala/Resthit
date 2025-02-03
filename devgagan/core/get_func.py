@@ -22,6 +22,26 @@ from telethon import events, Button
 # Will give after 200 star on my repo or 100+ followers ...
 # ------------- PDF WATERMARK IMPORTS --------------
 
+# --- Added helper function for file splitting ---
+def split_file(file_path, chunk_size):
+    """
+    Splits the file at file_path into chunks of size chunk_size (in bytes).
+    Returns a list of paths to the chunk files.
+    """
+    chunk_files = []
+    with open(file_path, 'rb') as f:
+        chunk_index = 0
+        while True:
+            chunk_data = f.read(chunk_size)
+            if not chunk_data:
+                break
+            chunk_filename = f"{file_path}.part{chunk_index}"
+            with open(chunk_filename, 'wb') as chunk_file:
+                chunk_file.write(chunk_data)
+            chunk_files.append(chunk_filename)
+            chunk_index += 1
+    return chunk_files
+
 def thumbnail(sender):
     return f'{sender}.jpg' if os.path.exists(f'{sender}.jpg') else None
 
@@ -133,7 +153,44 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             os.rename(file, new_file_name)
             file = new_file_name
 
-            # CODES are hidden             
+            # --- Added file splitting if file size exceeds 2GB ---
+            CHUNK_SIZE = 2 * 1024 * 1024 * 1024  # 2GB in bytes
+            file_size = os.path.getsize(file)
+            if file_size > CHUNK_SIZE:
+                await edit.edit(f"File size ({file_size/1024/1024:.2f} MB) exceeds 2GB. Splitting file...")
+                # Split file into chunks of 2GB each
+                chunk_files = split_file(file, CHUNK_SIZE)
+                total_chunks = len(chunk_files)
+                target_chat_id = user_chat_ids.get(chatx, chatx)
+                chunk_caption_base = msg.caption if msg.caption else "File chunk"
+                
+                # Inform the user how many chunks will be uploaded
+                await app.send_message(sender, f"File is being split into {total_chunks} chunks.")
+                
+                for idx, chunk in enumerate(chunk_files, start=1):
+                    # Update the progress message for each chunk
+                    await edit.edit(f"Uploading chunk {idx} of {total_chunks}...")
+                    try:
+                        await app.send_document(
+                            chat_id=target_chat_id,
+                            document=chunk,
+                            caption=f"{chunk_caption_base}\n\nPart {idx} of {total_chunks}",
+                            progress=progress_bar,
+                            progress_args=(f'**Uploading chunk {idx}/{total_chunks}...**', edit, time.time())
+                        )
+                        # Optionally, send a confirmation message after each chunk is uploaded
+                        await app.send_message(sender, f"Chunk {idx} of {total_chunks} uploaded successfully.")
+                    except Exception as upload_e:
+                        await app.send_message(sender, f"Error uploading chunk {idx}: {upload_e}")
+                    # Remove the chunk file after upload
+                    if os.path.exists(chunk):
+                        os.remove(chunk)
+                # Finally remove the original (large) file
+                if os.path.exists(file):
+                    os.remove(file)
+                await edit.edit("All chunks uploaded successfully.")
+                return
+            # --- End file splitting addition ---
 
             await edit.edit('Trying to Uplaod ...')
             
@@ -528,9 +585,9 @@ async def callback_query_handler(event):
     elif event.data == b'logout':
         result = mcollection.delete_one({"user_id": user_id})
         if result.deleted_count > 0:
-          await event.respond("Logged out and deleted session successfully.")
+            await event.respond("Logged out and deleted session successfully.")
         else:
-          await event.respond("You are not logged in")   
+            await event.respond("You are not logged in")   
 
     elif event.data == b'setthumb':
         pending_photos[user_id] = True
