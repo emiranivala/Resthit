@@ -167,7 +167,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             if file_size > 2 * 1024**3:
                 await app.send_message(sender, "Large file detected (>{:.2f} GB). Splitting into 2GB chunks...".format(file_size / (1024**3)))
                 
-                # Use the sender as target if no custom chat id is set
+                # Use sender as target to ensure a valid peer.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -186,7 +186,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     
                     for i, chunk in enumerate(chunk_files):
                         try:
-                            await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
+                            # Only send progress messages that show uploading status
                             status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
                             chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                             
@@ -204,12 +204,20 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
                             
-                            await app.edit_message_text(sender, status_msg.message_id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
+                            await app.edit_message_text(sender, status_msg.message_id, 
+                                f"Uploading chunk {i+1} of {total_chunks} ...\n"
+                                f"Completed : {round(os.path.getsize(chunk)/(1024**3),2)} GB/{round(os.path.getsize(chunk)/(1024**3),2)} GB"
+                            )
                         except Exception as chunk_error:
-                            await app.send_message(sender, f"Error uploading chunk {i+1}: {chunk_error}")
+                            # Instead of sending error messages to the user, log it
+                            print(f"Error uploading chunk {i+1}: {chunk_error}")
                         finally:
                             if os.path.exists(chunk):
                                 os.remove(chunk)
+                            try:
+                                await status_msg.delete()
+                            except Exception:
+                                pass
                     
                     if os.path.exists(file):
                         os.remove(file)
