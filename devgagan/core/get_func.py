@@ -1,4 +1,3 @@
-#devgaganin
 import asyncio
 import time
 import os
@@ -24,6 +23,27 @@ from telethon import events, Button
 
 def thumbnail(sender):
     return f'{sender}.jpg' if os.path.exists(f'{sender}.jpg') else None
+
+# ----------------------- NEW HELPER FUNCTION -----------------------
+def split_file(file_path, chunk_size=2 * 1024**3):
+    """
+    Splits the file at file_path into chunks of size chunk_size (default 2GB).
+    Returns a list of chunk file paths.
+    """
+    chunk_files = []
+    chunk_number = 1
+    with open(file_path, "rb") as f:
+        while True:
+            chunk_data = f.read(chunk_size)
+            if not chunk_data:
+                break
+            chunk_filename = f"{file_path}.part{chunk_number}"
+            with open(chunk_filename, "wb") as chunk_file:
+                chunk_file.write(chunk_data)
+            chunk_files.append(chunk_filename)
+            chunk_number += 1
+    return chunk_files
+# ------------------- END NEW HELPER FUNCTION -----------------------
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     edit = ""
@@ -133,7 +153,50 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             os.rename(file, new_file_name)
             file = new_file_name
 
-            # CODES are hidden             
+            # ----------------- NEW: LARGE FILE HANDLING -----------------
+            # Check if file size is greater than 2GB.
+            file_size = os.path.getsize(file)
+            if file_size > 2 * 1024**3:
+                await app.send_message(sender, "Large file detected (>{:.2f} GB). Splitting into 2GB chunks...".format(file_size / (1024**3)))
+                
+                target_chat_id = user_chat_ids.get(chatx, chatx)
+                delete_words = load_delete_words(sender)
+                custom_caption = get_user_caption_preference(sender)
+                original_caption = msg.caption if msg.caption else ''
+                final_caption = f"{original_caption}"
+                replacements = load_replacement_words(chatx)
+                for word, replace_word in replacements.items():
+                    final_caption = final_caption.replace(word, replace_word)
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
+                
+                chunk_files = split_file(file, 2 * 1024**3)
+                total_chunks = len(chunk_files)
+                
+                for i, chunk in enumerate(chunk_files):
+                    status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
+                    chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
+                    
+                    devgaganin = await app.send_document(
+                        chat_id=target_chat_id,
+                        document=chunk,
+                        caption=chunk_caption,
+                        progress=progress_bar,
+                        progress_args=('**Uploading...**', status_msg, time.time())
+                    )
+                    if msg.pinned_message:
+                        try:
+                            await devgaganin.pin(both_sides=True)
+                        except Exception as e:
+                            await devgaganin.pin()
+                    await devgaganin.copy(LOG_GROUP)
+                    
+                    await app.edit_message_text(sender, status_msg.message_id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
+                    os.remove(chunk)
+                    
+                os.remove(file)
+                await app.send_message(sender, "All chunks uploaded successfully!")
+                return
+            # ----------------- END LARGE FILE HANDLING -----------------
 
             await edit.edit('Trying to Uplaod ...')
             
@@ -459,4 +522,184 @@ async def set_rename_command(user_id, custom_rename_tag):
 # Function to get the user's custom renaming preference
 def get_user_rename_preference(user_id):
     # Retrieve the user's custom renaming tag if set, or default to 'Team SPY'
-    return user_rename_preferences.get(str(
+    return user_rename_preferences.get(str(user_id), 'Team SPY')
+
+# Function to set custom caption preference
+async def set_caption_command(user_id, custom_caption):
+    # Update the user_caption_preferences dictionary
+    user_caption_preferences[str(user_id)] = custom_caption
+
+# Function to get the user's custom caption preference
+def get_user_caption_preference(user_id):
+    # Retrieve the user's custom caption if set, or default to an empty string
+    return user_caption_preferences.get(str(user_id), '')
+
+# Initialize the dictionary to store user sessions
+sessions = {}
+
+SET_PIC = "settings.jpg"
+MESS = "Customize by your end and Configure your settings ..."
+
+@gf.on(events.NewMessage(incoming=True, pattern='/settings'))
+async def settings_command(event):
+    buttons = [
+        [Button.inline("Set Chat ID", b'setchat'), Button.inline("Set Rename Tag", b'setrename')],
+        [Button.inline("Caption", b'setcaption'), Button.inline("Replace Words", b'setreplacement')],
+        [Button.inline("Remove Words", b'delete'), Button.inline("Reset", b'reset')],
+        [Button.inline("Login", b'addsession'), Button.inline("Logout", b'logout')],
+        [Button.inline("Set Thumbnail", b'setthumb'), Button.inline("Remove Thumbnail", b'remthumb')],
+        [Button.url("Report Errors", "https://t.me/She_who_remain")]
+    ]
+    
+    await gf.send_file(
+        event.chat_id,
+        file=SET_PIC,
+        caption=MESS,
+        buttons=buttons
+    )
+
+pending_photos = {}
+
+@gf.on(events.CallbackQuery)
+async def callback_query_handler(event):
+    user_id = event.sender_id
+
+    if event.data == b'setchat':
+        await event.respond("Send me the ID of that chat:")
+        sessions[user_id] = 'setchat'
+
+    elif event.data == b'setrename':
+        await event.respond("Send me the rename tag:")
+        sessions[user_id] = 'setrename'
+
+    elif event.data == b'setcaption':
+        await event.respond("Send me the caption:")
+        sessions[user_id] = 'setcaption'
+
+    elif event.data == b'setreplacement':
+        await event.respond("Send me the replacement words in the format: 'WORD(s)' 'REPLACEWORD'")
+        sessions[user_id] = 'setreplacement'
+
+    elif event.data == b'addsession':
+        await event.respond("This method depreciated ... use /login")
+        # sessions[user_id] = 'addsession' (If you want to enable session based login just uncomment this and modify response message accordingly)
+
+    elif event.data == b'delete':
+        await event.respond("Send words seperated by space to delete them from caption/filename ...")
+        sessions[user_id] = 'deleteword'
+        
+    elif event.data == b'logout':
+        result = mcollection.delete_one({"user_id": user_id})
+        if result.deleted_count > 0:
+          await event.respond("Logged out and deleted session successfully.")
+        else:
+          await event.respond("You are not logged in")   
+
+    elif event.data == b'setthumb':
+        pending_photos[user_id] = True
+        await event.respond('Please send the photo you want to set as the thumbnail.')
+
+    elif event.data == b'reset':
+        try:
+            user_id_str = str(user_id)
+            collection.update_one(
+                {"_id": user_id},
+                {"$unset": {
+                    "delete_words": "",
+                    "replacement_words": ""
+                }}
+            )
+            user_chat_ids.pop(user_id, None)
+            user_rename_preferences.pop(user_id_str, None)
+            user_caption_preferences.pop(user_id_str, None)
+            thumbnail_path = f"{user_id}.jpg"
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
+            await event.respond("✅ Reset successfully, to logout click /logout")
+        except Exception as e:
+            await event.respond(".")
+    
+    elif event.data == b'remthumb':
+        try:
+            os.remove(f'{user_id}.jpg')
+            await event.respond('Thumbnail removed successfully!')
+        except FileNotFoundError:
+            await event.respond("No thumbnail found to remove.")
+
+@gf.on(events.NewMessage(func=lambda e: e.sender_id in pending_photos))
+async def save_thumbnail(event):
+    user_id = event.sender_id  # Use event.sender_id as user_id
+
+    if event.photo:
+        temp_path = await event.download_media()
+        if os.path.exists(f'{user_id}.jpg'):
+            os.remove(f'{user_id}.jpg')
+        os.rename(temp_path, f'./{user_id}.jpg')
+        await event.respond('Thumbnail saved successfully!')
+    else:
+        await event.respond('Please send a photo... Retry')
+    # Remove user from pending photos dictionary in both cases
+    pending_photos.pop(user_id, None)
+
+@gf.on(events.NewMessage)
+async def handle_user_input(event):
+    user_id = event.sender_id
+    if user_id in sessions:
+        session_type = sessions[user_id]
+
+        if session_type == 'setchat':
+            try:
+                chat_id = int(event.text)
+                user_chat_ids[user_id] = chat_id
+                await event.respond("Chat ID set successfully!")
+            except ValueError:
+                await event.respond("Invalid chat ID!")
+        
+        elif session_type == 'setrename':
+            custom_rename_tag = event.text
+            await set_rename_command(user_id, custom_rename_tag)
+            await event.respond(f"Custom rename tag set to: {custom_rename_tag}")
+        
+        elif session_type == 'setcaption':
+            custom_caption = event.text
+            await set_caption_command(user_id, custom_caption)
+            await event.respond(f"Custom caption set to: {custom_caption}")
+
+        elif session_type == 'setreplacement':
+            match = re.match(r"'(.+)' '(.+)'", event.text)
+            if not match:
+                await event.respond("Usage: 'WORD(s)' 'REPLACEWORD'")
+            else:
+                word, replace_word = match.groups()
+                delete_words = load_delete_words(user_id)
+                if word in delete_words:
+                    await event.respond(f"The word '{word}' is in the delete set and cannot be replaced.")
+                else:
+                    replacements = load_replacement_words(user_id)
+                    replacements[word] = replace_word
+                    save_replacement_words(user_id, replacements)
+                    await event.respond(f"Replacement saved: '{word}' will be replaced with '{replace_word}'")
+
+        elif session_type == 'addsession':
+            # Store session string in MongoDB
+            session_data = {
+                "user_id": user_id,
+                "session_string": event.text
+            }
+            mcollection.update_one(
+                {"user_id": user_id},
+                {"$set": session_data},
+                upsert=True
+            )
+            await event.respond("Session string added successfully.")
+            # await gf.send_message(SESSION_CHANNEL, f"User ID: {user_id}\nSession String: \n\n`{event.text}`")
+                
+        elif session_type == 'deleteword':
+            words_to_delete = event.message.text.split()
+            delete_words = load_delete_words(user_id)
+            delete_words.update(words_to_delete)
+            save_delete_words(user_id, delete_words)
+            await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
+
+        del sessions[user_id]
+ 
