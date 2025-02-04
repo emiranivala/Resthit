@@ -25,26 +25,36 @@ from telethon import events, Button
 def thumbnail(sender):
     return f'{sender}.jpg' if os.path.exists(f'{sender}.jpg') else None
 
-# ----------------------- NEW HELPER FUNCTION -----------------------
+# ----------------------- UPDATED SPLIT FUNCTION -----------------------
 def split_file(file_path, chunk_size=2 * 1024**3):
     """
     Splits the file at file_path into chunks of size chunk_size (default 2GB).
+    This version reads the file in smaller blocks (64KB) so that it never tries
+    to load 2GB in memory at once.
     Returns a list of chunk file paths.
     """
     chunk_files = []
     chunk_number = 1
+    buffer_size = 64 * 1024  # 64 KB
     with open(file_path, "rb") as f:
         while True:
-            chunk_data = f.read(chunk_size)
-            if not chunk_data:
-                break
+            bytes_written = 0
             chunk_filename = f"{file_path}.part{chunk_number}"
             with open(chunk_filename, "wb") as chunk_file:
-                chunk_file.write(chunk_data)
+                while bytes_written < chunk_size:
+                    # Read the smaller block (or the remainder)
+                    data = f.read(min(buffer_size, chunk_size - bytes_written))
+                    if not data:
+                        break
+                    chunk_file.write(data)
+                    bytes_written += len(data)
+            if bytes_written == 0:
+                # End of file reached
+                break
             chunk_files.append(chunk_filename)
             chunk_number += 1
     return chunk_files
-# ------------------- END NEW HELPER FUNCTION -----------------------
+# ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     edit = ""
@@ -76,7 +86,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     target_chat_id = user_chat_ids.get(chatx, chatx)
                     edit = await app.edit_message_text(target_chat_id, edit_id, "Cloning...")
                     devgaganin = await app.send_message(sender, msg.text.markdown)
-                    snt_msgs.append(devgaganin)  # AutoDeleter
+                    snt_msgs.append(devgaganin)
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -84,7 +94,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)                  
                     await edit.delete()
-                    #----------AutoDelete----------
                     await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
@@ -94,12 +103,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             pass
                     return
             if not msg.media:
-                snt_msgs = []  # AutoDeleter
+                snt_msgs = []
                 if msg.text:
                     target_chat_id = user_chat_ids.get(chatx, chatx)
                     edit = await app.edit_message_text(target_chat_id, edit_id, "Cloning...")
                     devgaganin = await app.send_message(sender, msg.text.markdown)
-                    snt_msgs.append(devgaganin)  # AutoDeleter
+                    snt_msgs.append(devgaganin)
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -130,7 +139,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if ggn_ext.lower() == 'mov':
                         original_file_name = str(file)[:last_dot_index]
                         file_extension = ggn_ext.lower()
-                        if file_extension == 'mov':  # fixed mov
+                        if file_extension == 'mov':
                             file_extension = 'mp4'
                     else:
                         original_file_name = str(file)[:last_dot_index]
@@ -153,13 +162,11 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             os.rename(file, new_file_name)
             file = new_file_name
 
-            # ----------------- NEW: LARGE FILE HANDLING -----------------
-            # Check if file size is greater than 2GB.
+            # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
                 await app.send_message(sender, "Large file detected (>{:.2f} GB). Splitting into 2GB chunks...".format(file_size / (1024**3)))
                 
-                # Prepare caption using existing preferences:
                 target_chat_id = user_chat_ids.get(chatx, chatx)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -178,8 +185,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     
                     for i, chunk in enumerate(chunk_files):
                         try:
-                            debug_msg = f"Uploading chunk {i+1} of {total_chunks}..."
-                            await app.send_message(sender, debug_msg)
+                            await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                             status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
                             chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                             
@@ -217,8 +223,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await edit.edit('Trying to Uplaod ...')
             
             if msg.media == MessageMediaType.VIDEO and msg.video.mime_type in ["video/mp4", "video/x-matroska"]:
-                snt_msgs = []  # AutoDeleter
-
+                snt_msgs = []
                 metadata = video_metadata(file)      
                 width = metadata['width']
                 height = metadata['height']
@@ -236,7 +241,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         progress=progress_bar,
                         progress_args=('**UPLOADING:**\n', edit, time.time())
                     )
-                    snt_msgs.append(devgaganin)  # AutoDeleter
+                    snt_msgs.append(devgaganin)
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
@@ -309,7 +314,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         await devgaganin.pin()                
                 await devgaganin.copy(LOG_GROUP)
             else:
-                # --- Modified branch: Preserve the original media type ---
                 thumb_path = thumbnail(chatx)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -378,14 +382,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await app.edit_message_text(sender, edit_id, f". Error: {e}")
 
 async def copy_message_with_chat_id(client, sender, chat_id, message_id):
-    # Get the user's set chat ID, if available; otherwise, use the original sender ID
     target_chat_id = user_chat_ids.get(sender, sender)
     
     try:
-        # Fetch the message using get_message
         msg = await client.get_messages(chat_id, message_id)
-        
-        # Modify the caption based on user's custom caption preference
         custom_caption = get_user_caption_preference(sender)
         original_caption = msg.caption if msg.caption else ''
         final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
@@ -408,13 +408,10 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
             elif msg.media == MessageMediaType.PHOTO:
                 result = await client.send_photo(target_chat_id, msg.photo.file_id, caption=caption)
             else:
-                # Use copy_message for any other media types
                 result = await client.copy_message(target_chat_id, chat_id, message_id)
         else:
-            # Use copy_message if there is no media
             result = await client.copy_message(target_chat_id, chat_id, message_id)
 
-        # Attempt to copy the result to the LOG_GROUP
         try:
             await result.copy(LOG_GROUP)
         except Exception:
@@ -433,19 +430,14 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
 # -------------- FFMPEG CODES ---------------
 # ------------------------ Button Mode Editz FOR SETTINGS ----------------------------
 
-# MongoDB database name and collection name
 DB_NAME = "smart_users"
 COLLECTION_NAME = "super_user"
 
-# Establish a connection to MongoDB
 mongo_client = pymongo.MongoClient(MONGODB_CONNECTION_STRING)
 db = mongo_client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
 def load_authorized_users():
-    """
-    Load authorized user IDs from the MongoDB collection
-    """
     authorized_users = set()
     for user_doc in collection.find():
         if "user_id" in user_doc:
@@ -453,31 +445,22 @@ def load_authorized_users():
     return authorized_users
 
 def save_authorized_users(authorized_users):
-    """
-    Save authorized user IDs to the MongoDB collection
-    """
     collection.delete_many({})
     for user_id in authorized_users:
         collection.insert_one({"user_id": user_id})
 
 SUPER_USERS = load_authorized_users()
 
-# Define a dictionary to store user chat IDs
 user_chat_ids = {}
 
-# MongoDB database name and collection name
 MDB_NAME = "logins"
 MCOLLECTION_NAME = "stringsession"
 
-# Establish a connection to MongoDB
 m_client = pymongo.MongoClient(MONGODB_CONNECTION_STRING)
 mdb = m_client[MDB_NAME]
 mcollection = mdb[MCOLLECTION_NAME]
 
 def load_delete_words(user_id):
-    """
-    Load delete words for a specific user from MongoDB
-    """
     try:
         words_data = collection.find_one({"_id": user_id})
         if words_data:
@@ -489,9 +472,6 @@ def load_delete_words(user_id):
         return set()
 
 def save_delete_words(user_id, delete_words):
-    """
-    Save delete words for a specific user to MongoDB
-    """
     try:
         collection.update_one(
             {"_id": user_id},
@@ -522,41 +502,28 @@ def save_replacement_words(user_id, replacements):
     except Exception as e:
         print(f"Error saving replacement words: {e}")
 
-# Initialize the dictionary to store user preferences for renaming
 user_rename_preferences = {}
-
-# Initialize the dictionary to store user caption
 user_caption_preferences = {}
 
-# Function to load user session from MongoDB
 def load_user_session(sender_id):
     user_data = collection.find_one({"user_id": sender_id})
     if user_data:
         return user_data.get("session")
     else:
-        return None  # Or handle accordingly if session doesn't exist
+        return None
 
-# Function to handle the /setrename command
 async def set_rename_command(user_id, custom_rename_tag):
-    # Update the user_rename_preferences dictionary
     user_rename_preferences[str(user_id)] = custom_rename_tag
 
-# Function to get the user's custom renaming preference
 def get_user_rename_preference(user_id):
-    # Retrieve the user's custom renaming tag if set, or default to 'Team SPY'
     return user_rename_preferences.get(str(user_id), 'Team SPY')
 
-# Function to set custom caption preference
 async def set_caption_command(user_id, custom_caption):
-    # Update the user_caption_preferences dictionary
     user_caption_preferences[str(user_id)] = custom_caption
 
-# Function to get the user's custom caption preference
 def get_user_caption_preference(user_id):
-    # Retrieve the user's custom caption if set, or default to an empty string
     return user_caption_preferences.get(str(user_id), '')
 
-# Initialize the dictionary to store user sessions
 sessions = {}
 
 SET_PIC = "settings.jpg"
