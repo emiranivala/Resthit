@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import requests
+import traceback
 from devgagan import app
 from devgagan import sex as gf
 import pymongo
@@ -208,7 +209,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     await app.send_message(sender, "All chunks uploaded successfully!")
                     return
                 except Exception as e:
-                    await app.send_message(sender, f"Error during large file processing: {e}")
+                    tb = traceback.format_exc()
+                    await app.send_message(sender, f"Error during large file processing:\n{tb}")
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
 
@@ -715,3 +717,4 @@ async def handle_user_input(event):
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
         del sessions[user_id]
+ 
