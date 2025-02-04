@@ -26,11 +26,13 @@ def thumbnail(sender):
     return f'{sender}.jpg' if os.path.exists(f'{sender}.jpg') else None
 
 # ----------------------- UPDATED SPLIT FUNCTION -----------------------
-def split_file(file_path, chunk_size=2 * 1024**3):
+# Set maximum chunk size to 2000 MiB (2000 * 1024^2 bytes)
+MAX_CHUNK_SIZE = 2000 * 1024**2
+
+def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     """
-    Splits the file at file_path into chunks of size chunk_size (default 2GB).
-    This version reads the file in smaller blocks (64KB) so that it never tries
-    to load 2GB in memory at once.
+    Splits the file at file_path into chunks of size chunk_size.
+    This version reads the file in 64KB blocks so that it never loads the entire chunk in memory.
     Returns a list of chunk file paths.
     """
     chunk_files = []
@@ -42,14 +44,12 @@ def split_file(file_path, chunk_size=2 * 1024**3):
             chunk_filename = f"{file_path}.part{chunk_number}"
             with open(chunk_filename, "wb") as chunk_file:
                 while bytes_written < chunk_size:
-                    # Read the smaller block (or the remainder)
                     data = f.read(min(buffer_size, chunk_size - bytes_written))
                     if not data:
                         break
                     chunk_file.write(data)
                     bytes_written += len(data)
             if bytes_written == 0:
-                # End of file reached
                 break
             chunk_files.append(chunk_filename)
             chunk_number += 1
@@ -67,7 +67,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     if 't.me/c/' in msg_link or 't.me/b/' in msg_link:
         parts = msg_link.split("/")
         if 't.me/b/' not in msg_link:
-            chat = int('-100' + str(parts[parts.index('c') + 1]))  # topic group/subgroup support enabled
+            chat = int('-100' + str(parts[parts.index('c') + 1]))
         else:
             chat = msg_link.split("/")[-2]
         file = ""
@@ -81,7 +81,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             if msg.empty is not None:
                 return None                          
             if msg.media:
-                snt_msgs = []  # AutoDeleter
+                snt_msgs = []
                 if msg.media == MessageMediaType.WEB_PAGE:
                     target_chat_id = user_chat_ids.get(chatx, chatx)
                     edit = await app.edit_message_text(target_chat_id, edit_id, "Cloning...")
@@ -90,9 +90,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
-                        except Exception as e:
+                        except Exception:
                             await devgaganin.pin()
-                    await devgaganin.copy(LOG_GROUP)                  
+                    await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
                     await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
@@ -112,7 +112,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
-                        except Exception as e:
+                        except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
@@ -167,7 +167,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             if file_size > 2 * 1024**3:
                 await app.send_message(sender, "Large file detected (>{:.2f} GB). Splitting into 2GB chunks...".format(file_size / (1024**3)))
                 
-                target_chat_id = user_chat_ids.get(chatx, chatx)
+                # Use the sender as target if no custom chat id is set
+                target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
                 original_caption = msg.caption if msg.caption else ''
@@ -179,7 +180,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 try:
                     await app.send_message(sender, "Starting to split the file...")
-                    chunk_files = split_file(file, 2 * 1024**3)
+                    chunk_files = split_file(file, MAX_CHUNK_SIZE)
                     total_chunks = len(chunk_files)
                     await app.send_message(sender, f"File split into {total_chunks} chunk(s).")
                     
@@ -199,7 +200,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             if msg.pinned_message:
                                 try:
                                     await devgaganin.pin(both_sides=True)
-                                except Exception as e:
+                                except Exception:
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
                             
@@ -245,7 +246,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
-                        except Exception as e:
+                        except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                     await edit.delete()
@@ -287,7 +288,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if msg.pinned_message:
                         try:
                             await devgaganin.pin(both_sides=True)
-                        except Exception as e:
+                        except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
                 except:
@@ -310,7 +311,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 if msg.pinned_message:
                     try:
                         await devgaganin.pin(both_sides=True)
-                    except Exception as e:
+                    except Exception:
                         await devgaganin.pin()                
                 await devgaganin.copy(LOG_GROUP)
             else:
@@ -420,7 +421,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
         if msg.pinned_message:
             try:
                 await result.pin(both_sides=True)
-            except Exception as e:
+            except Exception:
                 await result.pin()
 
     except Exception as e:
@@ -591,10 +592,7 @@ async def callback_query_handler(event):
             user_id_str = str(user_id)
             collection.update_one(
                 {"_id": user_id},
-                {"$unset": {
-                    "delete_words": "",
-                    "replacement_words": ""
-                }}
+                {"$unset": {"delete_words": "", "replacement_words": ""}}
             )
             user_chat_ids.pop(user_id, None)
             user_rename_preferences.pop(user_id_str, None)
