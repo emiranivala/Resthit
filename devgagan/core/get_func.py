@@ -32,7 +32,7 @@ MAX_CHUNK_SIZE = 2000 * 1024**2
 def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     """
     Splits the file at file_path into chunks of size chunk_size.
-    Reads the file in 64KB blocks so that memory usage is kept low.
+    Reads the file in 64KB blocks so that it never loads the entire chunk in memory.
     Returns a list of chunk file paths.
     """
     chunk_files = []
@@ -75,14 +75,14 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # If the message contains text (even if media is present), echo the text.
+            # If message contains text, echo it.
             if msg.text:
                 await app.send_message(sender, msg.text)
-            # If there's no media at all, do nothing further.
+            # If no media exists, do nothing further.
             if not msg.media:
                 return
 
-            # Download file with progress (using progress_bar callback)
+            # Download file with progress (temporary message "Downloading..." will be deleted)
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
             file = await userbot.download_media(
                 msg,
@@ -123,7 +123,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # For files larger than 2GB, split and upload chunks without extra messages.
+                # Do not send extra messages to the user.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -135,12 +135,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
                 
                 try:
+                    # No extra debug messages are sent here.
                     chunk_files = split_file(file, MAX_CHUNK_SIZE)
                     total_chunks = len(chunk_files)
                     
                     for i, chunk in enumerate(chunk_files):
                         try:
-                            # Create an empty temporary message for progress.
+                            # Create an empty temporary message for progress; then delete it.
                             status_msg = await app.send_message(sender, "")
                             chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                             
@@ -494,4 +495,3 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
         del sessions[user_id]
- 
