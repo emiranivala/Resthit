@@ -374,7 +374,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             await app.edit_message_text(sender, edit_id, "Have you joined the channel?")
             return
         except Exception as e:
-            await app.edit_message_text(sender, edit_id, f". Error: {e}")
+            if "PEER_ID_INVALID" in str(e):
+                await app.edit_message_text(sender, edit_id, ".")
+            else:
+                await app.edit_message_text(sender, edit_id, f". Error: {e}")
     
     else:
         edit = await app.edit_message_text(sender, edit_id, "Cloning...")
@@ -685,3 +688,4 @@ async def handle_user_input(event):
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
         del sessions[user_id]
+ 
