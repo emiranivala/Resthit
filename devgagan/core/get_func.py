@@ -19,7 +19,7 @@ import cv2
 from telethon import events, Button
 
 # ------------- PDF WATERMARK IMPORTS --------------
-# (Omitted for brevity - to be added when available)
+# (Omitted for brevity - add as needed)
 # ------------- PDF WATERMARK IMPORTS --------------
 
 def thumbnail(sender):
@@ -75,9 +75,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # (Omitted: Handling non-media or service messages for brevity)
+            # (Omitted: handling for non-media or service messages)
 
-            # Download the file with progress shown via your progress_bar callback
+            # Download file (progress shown via progress_bar)
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
             file = await userbot.download_media(
                 msg,
@@ -118,8 +118,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # Do not send extra debug messages to the user.
-                # Use the sender as the target to ensure a valid peer.
+                # No extra debug messages are kept permanently.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -136,7 +135,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     
                     for i, chunk in enumerate(chunk_files):
                         try:
-                            # Show a temporary progress message and then update it via progress_bar callback.
                             status_msg = await app.send_message(sender, f"Uploading chunk {i+1}/{total_chunks} ...")
                             chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                             
@@ -153,7 +151,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 except Exception:
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
-                            await status_msg.delete()
+                            await status_msg.delete()  # Remove progress message after upload
                         except Exception as chunk_error:
                             print(f"Error uploading chunk {i+1}: {chunk_error}")
                         finally:
@@ -163,10 +161,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if os.path.exists(file):
                         os.remove(file)
                     
-                    # Delete the temporary download progress message.
-                    await edit.delete()
-                    # Optionally, you can send a final success message then delete it as well.
-                    # For a completely clean finish, do not send any extra message.
+                    await edit.delete()  # Remove download progress message
                     return
                 except Exception as e:
                     tb = traceback.format_exc()
@@ -174,8 +169,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
 
-            # (Normal file upload handling for non-large files goes here.)
-            # After successful upload, remove the file and delete the progress message.
+            # (Normal file upload handling for non-large files would be here.)
             if os.path.exists(file):
                 os.remove(file)
             await edit.delete()
@@ -241,7 +235,6 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
         await client.send_message(sender, ".")
 
 # ------------------------ Settings, Callbacks, and Session Code ------------------------
-# (Below is your unchanged settings and session code.)
 
 DB_NAME = "smart_users"
 COLLECTION_NAME = "super_user"
