@@ -75,15 +75,14 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # --- NEW: Handle non-media text messages ---
+            # If no media but text exists, simply echo the text back.
             if not msg.media and msg.text:
                 await app.send_message(sender, msg.text)
                 return
-            # -------------------------------------------------
 
-            # (Omitted: handling for service messages for brevity)
+            # (Other service message handling omitted for brevity)
 
-            # Download file with progress shown via the progress_bar callback.
+            # Download file with progress via progress_bar
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
             file = await userbot.download_media(
                 msg,
@@ -124,7 +123,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # No extra permanent debug messages are sent.
+                # For files larger than 2GB, split and upload chunks.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -144,7 +143,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             status_msg = await app.send_message(sender, f"Uploading chunk {i+1}/{total_chunks} ...")
                             chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                             
-                            devgaganin = await app.send_document(
+                            dev = await app.send_document(
                                 chat_id=target_chat_id,
                                 document=chunk,
                                 caption=chunk_caption,
@@ -153,10 +152,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             )
                             if msg.pinned_message:
                                 try:
-                                    await devgaganin.pin(both_sides=True)
+                                    await dev.pin(both_sides=True)
                                 except Exception:
-                                    await devgaganin.pin()
-                            await devgaganin.copy(LOG_GROUP)
+                                    await dev.pin()
+                            await dev.copy(LOG_GROUP)
                             await status_msg.delete()
                         except Exception as chunk_error:
                             print(f"Error uploading chunk {i+1}: {chunk_error}")
@@ -166,7 +165,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     
                     if os.path.exists(file):
                         os.remove(file)
-                    
                     await edit.delete()
                     return
                 except Exception as e:
@@ -174,11 +172,46 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     await app.send_message(sender, f"Error during large file processing:\n{tb}")
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
-
-            # (Normal file upload handling for non-large files would go here.)
-            if os.path.exists(file):
-                os.remove(file)
-            await edit.delete()
+            else:
+                # ----------------- NORMAL FILE UPLOAD (<=2GB) -----------------
+                status_msg = await app.send_message(sender, "Uploading...")
+                if msg.media:
+                    if msg.media == MessageMediaType.VIDEO:
+                        dev = await app.send_video(
+                            chat_id=sender,
+                            video=file,
+                            caption=caption,
+                            progress=progress_bar,
+                            progress_args=('Uploading...', status_msg, time.time())
+                        )
+                    elif msg.media == MessageMediaType.PHOTO:
+                        dev = await app.send_photo(
+                            chat_id=sender,
+                            photo=file,
+                            caption=caption
+                        )
+                    elif msg.media == MessageMediaType.AUDIO:
+                        dev = await app.send_audio(
+                            chat_id=sender,
+                            audio=file,
+                            caption=caption,
+                            progress=progress_bar,
+                            progress_args=('Uploading...', status_msg, time.time())
+                        )
+                    else:
+                        dev = await app.send_document(
+                            chat_id=sender,
+                            document=file,
+                            caption=caption,
+                            progress=progress_bar,
+                            progress_args=('Uploading...', status_msg, time.time())
+                        )
+                    await dev.copy(LOG_GROUP)
+                    await status_msg.delete()
+                # ----------------- END NORMAL FILE UPLOAD -----------------
+                if os.path.exists(file):
+                    os.remove(file)
+                await edit.delete()
         
         except (ChannelBanned, ChannelInvalid, ChannelPrivate, ChatIdInvalid, ChatInvalid):
             await app.edit_message_text(sender, edit_id, "Have you joined the channel?")
@@ -458,4 +491,3 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
         del sessions[user_id]
- 
