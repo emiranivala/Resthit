@@ -145,7 +145,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             file = await userbot.download_media(
                 msg,
                 progress=progress_bar,
-                progress_args=(edit, time.time())  # Note: We pass only the message and start time here.
+                progress_args=(edit, time.time())
             )
         
             custom_rename_tag = get_user_rename_preference(chatx)
@@ -216,10 +216,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 except Exception:
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
-                            
-                            await app.edit_message_text(sender, status_msg.message_id, "")  # Clear progress text
                         except Exception as chunk_error:
-                            # (Progress error messages removed)
                             pass
                         finally:
                             if os.path.exists(chunk):
@@ -270,6 +267,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.delete()
                         except:
                             pass
+                    # Delete the uploaded file from local storage
+                    if os.path.exists(file):
+                        os.remove(file)
                     return
                 
                 delete_words = load_delete_words(sender)
@@ -306,7 +306,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     await devgaganin.copy(LOG_GROUP)
                 except:
                     await app.edit_message_text(sender, edit_id, ".")
-                os.remove(file)
+                # Remove the local file after successful upload
+                if os.path.exists(file):
+                    os.remove(file)
                     
             elif msg.media == MessageMediaType.PHOTO:
                 await edit.edit("**Uploading photo...")
@@ -327,6 +329,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     except Exception:
                         await devgaganin.pin()                
                 await devgaganin.copy(LOG_GROUP)
+                if os.path.exists(file):
+                    os.remove(file)
             else:
                 thumb_path = thumbnail(chatx)
                 delete_words = load_delete_words(sender)
@@ -376,7 +380,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         )
                 except:
                     await app.edit_message_text(sender, edit_id, ".")
-                os.remove(file)
+                if os.path.exists(file):
+                    os.remove(file)
                         
             await edit.delete()
         
@@ -592,9 +597,9 @@ async def callback_query_handler(event):
     elif event.data == b'logout':
         result = mcollection.delete_one({"user_id": user_id})
         if result.deleted_count > 0:
-          await event.respond("Logged out and deleted session successfully.")
+            await event.respond("Logged out and deleted session successfully.")
         else:
-          await event.respond("You are not logged in")   
+            await event.respond("You are not logged in")   
 
     elif event.data == b'setthumb':
         pending_photos[user_id] = True
