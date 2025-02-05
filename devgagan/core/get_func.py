@@ -19,20 +19,20 @@ import cv2
 from telethon import events, Button
 
 # ------------- PDF WATERMARK IMPORTS --------------
-# (Omitted for brevity - add as needed)
+# (Omitted for brevity)
 # ------------- PDF WATERMARK IMPORTS --------------
 
 def thumbnail(sender):
     return f'{sender}.jpg' if os.path.exists(f'{sender}.jpg') else None
 
 # ----------------------- UPDATED SPLIT FUNCTION -----------------------
-# Set maximum chunk size to 2000 MiB (2000 * 1024^2 bytes)
+# Maximum chunk size is set to 2000 MiB (2000 * 1024^2 bytes)
 MAX_CHUNK_SIZE = 2000 * 1024**2
 
 def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     """
     Splits the file at file_path into chunks of size chunk_size.
-    This version reads the file in 64KB blocks to keep memory usage low.
+    Reads the file in 64KB blocks so as to keep memory usage low.
     Returns a list of chunk file paths.
     """
     chunk_files = []
@@ -75,9 +75,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # (Omitted: handling for non-media or service messages)
+            # (Omitted: handling for non-media/service messages for brevity)
 
-            # Download file (progress shown via progress_bar)
+            # Download file with progress shown via the progress_bar callback.
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
             file = await userbot.download_media(
                 msg,
@@ -118,7 +118,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # No extra debug messages are kept permanently.
+                # No extra permanent debug messages are sent.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -151,7 +151,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 except Exception:
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
-                            await status_msg.delete()  # Remove progress message after upload
+                            await status_msg.delete()  # Delete temporary progress message.
                         except Exception as chunk_error:
                             print(f"Error uploading chunk {i+1}: {chunk_error}")
                         finally:
@@ -161,7 +161,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if os.path.exists(file):
                         os.remove(file)
                     
-                    await edit.delete()  # Remove download progress message
+                    await edit.delete()  # Delete the download progress message.
                     return
                 except Exception as e:
                     tb = traceback.format_exc()
@@ -169,7 +169,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
 
-            # (Normal file upload handling for non-large files would be here.)
+            # (Normal file upload handling for non-large files would go here.)
             if os.path.exists(file):
                 os.remove(file)
             await edit.delete()
@@ -184,7 +184,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
         edit = await app.edit_message_text(sender, edit_id, "Cloning...")
         try:
             chat = msg_link.split("/")[-2]
-            await copy_message_with_chat_id(app, sender, chat, msg_id) 
+            await copy_message_with_chat_id(app, sender, chat, msg_id)
             await edit.delete()
         except Exception as e:
             await app.edit_message_text(sender, edit_id, f". Error: {e}")
@@ -452,4 +452,3 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
         del sessions[user_id]
- 
