@@ -57,20 +57,36 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     return chunk_files
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
-# -------------------- CUSTOM PROGRESS BAR FUNCTION --------------------
-# This callback will automatically delete the progress message when the transfer is complete.
+# -------------------- MODIFIED PROGRESS BAR FUNCTION --------------------
+# This callback updates the progress status message during download/upload.
+# When the transfer is complete, it updates the message one final time and then deletes it.
 async def progress_bar(current, total, message, start_time):
     try:
-        # (Optional: you can update the progress message while transferring by uncommenting below)
-        # if current < total:
-        #     percent = (current / total) * 100
-        #     await message.edit_text(f"Progress: {percent:.2f}%")
-        if current >= total:
-            await message.delete()
+        elapsed = time.time() - start_time
+        if current < total:
+            percent = current / total * 100
+            # Calculate speed in KB/s (if elapsed is > 0)
+            speed = (current / elapsed / 1024) if elapsed > 0 else 0
+            text = (
+                f"Progress: {percent:.2f}%\n"
+                f"Completed: {current/1024/1024:.2f} MB / {total/1024/1024:.2f} MB\n"
+                f"Speed: {speed:.2f} KB/s"
+            )
+            try:
+                await message.edit_text(text)
+            except Exception:
+                pass
+        else:
+            # Transfer complete; update the message, wait briefly, then delete.
+            try:
+                await message.edit_text("Transfer complete")
+                await asyncio.sleep(1)
+                await message.delete()
+            except Exception:
+                pass
     except Exception:
         pass
-
-# --------------------- END CUSTOM PROGRESS BAR FUNCTION ---------------------
+# ------------------ END MODIFIED PROGRESS BAR FUNCTION ------------------
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     edit = ""
@@ -109,7 +125,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
-                    await edit.delete()
+                    try:
+                        await edit.delete()
+                    except Exception:
+                        pass
                     await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
@@ -131,7 +150,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
-                    await edit.delete()
+                    try:
+                        await edit.delete()
+                    except Exception:
+                        pass
                     await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
@@ -182,7 +204,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # (Progress messages removed)
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -199,8 +220,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     
                     for i, chunk in enumerate(chunk_files):
                         try:
-                            # Here we send an empty progress message that will be auto-deleted on completion.
-                            status_msg = await app.send_message(sender, "")
+                            # Send a progress message that will be updated
+                            status_msg = await app.send_message(sender, "Uploading chunk...")
                             chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                             
                             devgaganin = await app.send_document(
@@ -216,7 +237,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 except Exception:
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
-                        except Exception as chunk_error:
+                        except Exception:
                             pass
                         finally:
                             if os.path.exists(chunk):
@@ -227,11 +248,17 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
                 except Exception as e:
                     tb = traceback.format_exc()
-                    await app.send_message(sender, f"Error during large file processing:\n{tb}")
+                    try:
+                        await app.send_message(sender, f"Error during large file processing:\n{tb}")
+                    except Exception:
+                        pass
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
 
-            await edit.edit('Trying to Uplaod ...')
+            try:
+                await edit.edit_text('Trying to Upload ...')
+            except Exception:
+                pass
             
             if msg.media == MessageMediaType.VIDEO and msg.video.mime_type in ["video/mp4", "video/x-matroska"]:
                 snt_msgs = []
@@ -259,7 +286,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
-                    await edit.delete()
+                    try:
+                        await edit.delete()
+                    except Exception:
+                        pass
                     await message.reply_text("Content will be deleted in 5 minutes.\nForward to saved messages", parse_mode="markdown")
                     await asyncio.sleep(SECONDS)
                     for devgaganin in snt_msgs:
@@ -267,7 +297,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.delete()
                         except:
                             pass
-                    # Delete the uploaded file from local storage
                     if os.path.exists(file):
                         os.remove(file)
                     return
@@ -304,14 +333,19 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except Exception:
                             await devgaganin.pin()
                     await devgaganin.copy(LOG_GROUP)
-                except:
-                    await app.edit_message_text(sender, edit_id, ".")
-                # Remove the local file after successful upload
+                except Exception:
+                    try:
+                        await app.edit_message_text(sender, edit_id, ".")
+                    except Exception:
+                        pass
                 if os.path.exists(file):
                     os.remove(file)
                     
             elif msg.media == MessageMediaType.PHOTO:
-                await edit.edit("**Uploading photo...")
+                try:
+                    await edit.edit_text("Uploading photo...")
+                except Exception:
+                    pass
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
                 original_caption = msg.caption if msg.caption else ''
@@ -378,27 +412,45 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             progress=progress_bar,
                             progress_args=(edit, time.time())
                         )
-                except:
-                    await app.edit_message_text(sender, edit_id, ".")
+                except Exception:
+                    try:
+                        await app.edit_message_text(sender, edit_id, ".")
+                    except Exception:
+                        pass
                 if os.path.exists(file):
                     os.remove(file)
                         
-            await edit.delete()
+            try:
+                await edit.delete()
+            except Exception:
+                pass
         
         except (ChannelBanned, ChannelInvalid, ChannelPrivate, ChatIdInvalid, ChatInvalid):
-            await app.edit_message_text(sender, edit_id, "Have you joined the channel?")
+            try:
+                await app.edit_message_text(sender, edit_id, "Have you joined the channel?")
+            except Exception:
+                pass
             return
         except Exception as e:
-            await app.edit_message_text(sender, edit_id, f". Error: {e}")
+            try:
+                await app.edit_message_text(sender, edit_id, f". Error: {e}")
+            except Exception:
+                pass
     
     else:
         edit = await app.edit_message_text(sender, edit_id, "Cloning...")
         try:
             chat = msg_link.split("/")[-2]
             await copy_message_with_chat_id(app, sender, chat, msg_id) 
-            await edit.delete()
+            try:
+                await edit.delete()
+            except Exception:
+                pass
         except Exception as e:
-            await app.edit_message_text(sender, edit_id, f". Error: {e}")
+            try:
+                await app.edit_message_text(sender, edit_id, f". Error: {e}")
+            except Exception:
+                pass
 
 async def copy_message_with_chat_id(client, sender, chat_id, message_id):
     target_chat_id = user_chat_ids.get(sender, sender)
@@ -443,8 +495,11 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
                 await result.pin()
 
     except Exception as e:
-        await client.send_message(sender, f". Error in copy_message: {e}")
-        await client.send_message(sender, ".")
+        try:
+            await client.send_message(sender, f". Error in copy_message: {e}")
+            await client.send_message(sender, ".")
+        except Exception:
+            pass
 
 # -------------- FFMPEG CODES ---------------
 # ------------------------ Button Mode Editz FOR SETTINGS ----------------------------
