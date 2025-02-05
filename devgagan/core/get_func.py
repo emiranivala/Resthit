@@ -19,7 +19,7 @@ import cv2
 from telethon import events, Button
 
 # ------------- PDF WATERMARK IMPORTS --------------
-# (Omitted for brevity)
+# (Omitted for brevity - add when available)
 # ------------- PDF WATERMARK IMPORTS --------------
 
 def thumbnail(sender):
@@ -75,16 +75,14 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # If the message contains text (even if it also has media),
-            # reply with the text to ensure text is echoed.
+            # If the message contains text (even if it also has media), echo it.
             if msg.text:
                 await app.send_message(sender, msg.text)
-
-            # If there's no media at all, return now.
+            # If there's no media at all, return.
             if not msg.media:
                 return
 
-            # Download file with progress (using your progress_bar callback)
+            # Download file with progress shown via the progress_bar callback.
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
             file = await userbot.download_media(
                 msg,
@@ -125,7 +123,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # For files larger than 2GB, split and upload in chunks.
+                # For files >2GB, split and upload in chunks.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -176,7 +174,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
             else:
-                # ----------------- NORMAL FILE UPLOAD (<= 2GB) -----------------
+                # ----------------- NORMAL FILE UPLOAD (<=2GB) -----------------
                 status_msg = await app.send_message(sender, "Uploading...")
                 if msg.media:
                     if msg.media == MessageMediaType.VIDEO:
