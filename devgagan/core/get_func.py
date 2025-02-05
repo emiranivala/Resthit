@@ -32,7 +32,7 @@ MAX_CHUNK_SIZE = 2000 * 1024**2
 def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     """
     Splits the file at file_path into chunks of size chunk_size.
-    Reads the file in 64KB blocks so as to keep memory usage low.
+    Reads the file in 64KB blocks to keep memory usage low.
     Returns a list of chunk file paths.
     """
     chunk_files = []
@@ -75,14 +75,16 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # If no media but text exists, simply echo the text back.
-            if not msg.media and msg.text:
+            # If the message contains text (even if it also has media),
+            # reply with the text to ensure text is echoed.
+            if msg.text:
                 await app.send_message(sender, msg.text)
+
+            # If there's no media at all, return now.
+            if not msg.media:
                 return
 
-            # (Other service message handling omitted for brevity)
-
-            # Download file with progress via progress_bar
+            # Download file with progress (using your progress_bar callback)
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
             file = await userbot.download_media(
                 msg,
@@ -123,7 +125,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # For files larger than 2GB, split and upload chunks.
+                # For files larger than 2GB, split and upload in chunks.
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -165,6 +167,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     
                     if os.path.exists(file):
                         os.remove(file)
+                    
                     await edit.delete()
                     return
                 except Exception as e:
@@ -173,7 +176,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
             # ----------------- END LARGE FILE HANDLING -----------------
             else:
-                # ----------------- NORMAL FILE UPLOAD (<=2GB) -----------------
+                # ----------------- NORMAL FILE UPLOAD (<= 2GB) -----------------
                 status_msg = await app.send_message(sender, "Uploading...")
                 if msg.media:
                     if msg.media == MessageMediaType.VIDEO:
@@ -491,3 +494,4 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
         del sessions[user_id]
+ 
