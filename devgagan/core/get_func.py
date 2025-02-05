@@ -75,7 +75,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             msg = await userbot.get_messages(chat, msg_id)
             caption = None
 
-            # (Omitted: handling for non-media/service messages for brevity)
+            # --- NEW: Handle non-media text messages ---
+            if not msg.media and msg.text:
+                await app.send_message(sender, msg.text)
+                return
+            # -------------------------------------------------
+
+            # (Omitted: handling for service messages for brevity)
 
             # Download file with progress shown via the progress_bar callback.
             edit = await app.edit_message_text(sender, edit_id, "Downloading...")
@@ -151,7 +157,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 except Exception:
                                     await devgaganin.pin()
                             await devgaganin.copy(LOG_GROUP)
-                            await status_msg.delete()  # Delete temporary progress message.
+                            await status_msg.delete()
                         except Exception as chunk_error:
                             print(f"Error uploading chunk {i+1}: {chunk_error}")
                         finally:
@@ -161,7 +167,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     if os.path.exists(file):
                         os.remove(file)
                     
-                    await edit.delete()  # Delete the download progress message.
+                    await edit.delete()
                     return
                 except Exception as e:
                     tb = traceback.format_exc()
@@ -452,3 +458,4 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
         del sessions[user_id]
+ 
