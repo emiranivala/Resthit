@@ -124,7 +124,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except:
                             pass
                     return
-        
+
             edit = await app.edit_message_text(sender, edit_id, "Trying to Download...")
             file = await userbot.download_media(
                 msg,
@@ -165,9 +165,14 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                await app.send_message(sender, "Large file detected (>{:.2f} GB). Splitting into 2GB chunks...".format(file_size / (1024**3)))
+                # Auto-delete these status messages after they serve their purpose.
+                status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
+                status_msg2 = await app.send_message(sender, "Starting to split the file...")
                 
-                # Use the sender as target if no custom chat id is set
+                chunk_files = split_file(file, MAX_CHUNK_SIZE)
+                total_chunks = len(chunk_files)
+                status_msg3 = await app.send_message(sender, f"File split into {total_chunks} chunk(s).")
+                
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
@@ -178,50 +183,46 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     final_caption = final_caption.replace(word, replace_word)
                 caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
                 
-                try:
-                    await app.send_message(sender, "Starting to split the file...")
-                    chunk_files = split_file(file, MAX_CHUNK_SIZE)
-                    total_chunks = len(chunk_files)
-                    await app.send_message(sender, f"File split into {total_chunks} chunk(s).")
-                    
-                    for i, chunk in enumerate(chunk_files):
-                        try:
-                            await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
-                            status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                            chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
-                            
-                            devgaganin = await app.send_document(
-                                chat_id=target_chat_id,
-                                document=chunk,
-                                caption=chunk_caption,
-                                progress=progress_bar,
-                                progress_args=('**Uploading...**', status_msg, time.time())
-                            )
-                            if msg.pinned_message:
-                                try:
-                                    await devgaganin.pin(both_sides=True)
-                                except Exception:
-                                    await devgaganin.pin()
-                            await devgaganin.copy(LOG_GROUP)
-                            
-                            await app.edit_message_text(sender, status_msg.message_id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        except Exception as chunk_error:
-                            if "PEER_ID_INVALID" in str(chunk_error):
-                                pass
-                            else:
-                                await app.send_message(sender, f"Error uploading chunk {i+1}: {chunk_error}")
-                        finally:
-                            if os.path.exists(chunk):
-                                os.remove(chunk)
-                    
-                    if os.path.exists(file):
-                        os.remove(file)
-                    await app.send_message(sender, "All chunks uploaded successfully!")
-                    return
-                except Exception as e:
-                    tb = traceback.format_exc()
-                    await app.send_message(sender, f"Error during large file processing:\n{tb}")
-                    return
+                for i, chunk in enumerate(chunk_files):
+                    try:
+                        chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
+                        progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
+                        chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
+                        
+                        devgaganin = await app.send_document(
+                            chat_id=target_chat_id,
+                            document=chunk,
+                            caption=chunk_caption,
+                            progress=progress_bar,
+                            progress_args=('**Uploading...**', progress_status, time.time())
+                        )
+                        if msg.pinned_message:
+                            try:
+                                await devgaganin.pin(both_sides=True)
+                            except Exception:
+                                await devgaganin.pin()
+                        await devgaganin.copy(LOG_GROUP)
+                        await app.edit_message_text(sender, progress_status.message_id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
+                        # Delete the chunk-related status messages immediately after successful upload.
+                        await chunk_status_msg.delete()
+                        await progress_status.delete()
+                    except Exception as chunk_error:
+                        if "PEER_ID_INVALID" in str(chunk_error):
+                            pass
+                        else:
+                            await app.send_message(sender, f"Error uploading chunk {i+1}: {chunk_error}")
+                    finally:
+                        if os.path.exists(chunk):
+                            os.remove(chunk)
+                
+                if os.path.exists(file):
+                    os.remove(file)
+                # Delete the initial large-file status messages.
+                await status_msg1.delete()
+                await status_msg2.delete()
+                await status_msg3.delete()
+                await app.send_message(sender, "All chunks uploaded successfully!")
+                return
             # ----------------- END LARGE FILE HANDLING -----------------
 
             await edit.edit('Trying to Uplaod ...')
@@ -688,4 +689,3 @@ async def handle_user_input(event):
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
         del sessions[user_id]
- 
