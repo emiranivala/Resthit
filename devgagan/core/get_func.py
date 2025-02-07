@@ -165,6 +165,11 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
+                # Delete the download progress message before starting the large file branch.
+                try:
+                    await edit.delete()
+                except Exception:
+                    pass
                 # Auto-delete these status messages after they serve their purpose.
                 status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
                 status_msg2 = await app.send_message(sender, "Starting to split the file...")
@@ -310,8 +315,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     final_caption = final_caption.replace(word, replace_word)
                 caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
 
-                target_chat_id = user_chat_ids.get(sender, sender)
-                devgaganin = await app.send_photo(chat_id=target_chat_id, photo=file, caption=caption)
+                target_chat_ids = user_chat_ids.get(sender, sender)
+                devgaganin = await app.send_photo(chat_id=target_chat_ids, photo=file, caption=caption)
                 if msg.pinned_message:
                     try:
                         await devgaganin.pin(both_sides=True)
