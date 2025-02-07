@@ -56,6 +56,14 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     return chunk_files
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
+# Helper function: schedule deletion of a message after a delay.
+async def delete_after(message, delay=2):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     edit = ""
     chat = ""
@@ -215,12 +223,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Wait briefly then delete the per‑chunk messages.
-                        await asyncio.sleep(2)
-                        try:
-                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
-                        except Exception:
-                            pass
+                        # Schedule deletion of the per‑chunk messages.
+                        asyncio.create_task(delete_after(chunk_status_msg))
+                        asyncio.create_task(delete_after(progress_status))
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -232,12 +237,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                # Wait briefly then delete the large-file status messages.
-                await asyncio.sleep(2)
-                try:
-                    await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
-                except Exception:
-                    pass
+                # Schedule deletion of the large-file status messages.
+                asyncio.create_task(delete_after(status_msg1))
+                asyncio.create_task(delete_after(status_msg2))
+                asyncio.create_task(delete_after(status_msg3))
                 await app.send_message(sender, "All chunks uploaded successfully!")
                 return
             # ----------------- END LARGE FILE HANDLING -----------------
