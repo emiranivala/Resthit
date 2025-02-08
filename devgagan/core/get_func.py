@@ -1,3 +1,4 @@
+
 import asyncio
 import time
 import os
@@ -57,12 +58,12 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
 # Helper function to delete a message after a delay
-async def delete_message_after(msg, delay=5):
+async def delete_after(message, delay=2):
     await asyncio.sleep(delay)
     try:
-        await msg.delete()
-    except Exception as e:
-        print(f"Error deleting message {msg.id}: {e}")
+        await message.delete()
+    except Exception:
+        pass
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     edit = ""
@@ -179,10 +180,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
+                # Delete the download progress message before starting the large file branch.
                 try:
                     await edit.delete()
                 except Exception:
                     pass
+                # Send status messages for large file processing.
                 status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
                 status_msg2 = await app.send_message(sender, "Starting to split the file...")
                 
@@ -202,6 +205,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 for i, chunk in enumerate(chunk_files):
                     try:
+                        # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
                         chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
@@ -220,9 +224,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Wait 5 seconds and then delete the two progress messages individually.
-                        await delete_message_after(chunk_status_msg, delay=5)
-                        await delete_message_after(progress_status, delay=5)
+                        # Wait briefly and then delete the per-chunk progress messages.
+                        await asyncio.sleep(2)
+                        try:
+                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
+                        except Exception:
+                            pass
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -234,9 +241,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                await delete_message_after(status_msg1, delay=5)
-                await delete_message_after(status_msg2, delay=5)
-                await delete_message_after(status_msg3, delay=5)
+                # Wait briefly then delete the large-file status messages.
+                await asyncio.sleep(2)
+                try:
+                    await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
+                except Exception:
+                    pass
                 await app.send_message(sender, "All chunks uploaded successfully!")
                 return
             # ----------------- END LARGE FILE HANDLING -----------------
