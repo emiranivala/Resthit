@@ -202,7 +202,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        # Use final_caption (which was just built) instead of caption to avoid None.
+                        # Use final_caption (which was built above) instead of caption to avoid None.
                         chunk_caption = final_caption + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
@@ -218,12 +218,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             except Exception:
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
-                        await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Immediately delete the per-chunk progress messages (no delay).
-                        try:
+                        # Only after a successful upload (i.e. devgaganin is not None)
+                        if devgaganin is not None:
+                            await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
                             await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
-                        except Exception:
-                            pass
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
