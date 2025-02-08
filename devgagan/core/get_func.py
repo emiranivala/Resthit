@@ -197,13 +197,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 custom_caption = get_user_caption_preference(sender)
                 original_caption = msg.caption if msg.caption else ''
                 final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{original_caption}"
-                
                 for i, chunk in enumerate(chunk_files):
                     try:
                         # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
+                        # Use final_caption (which was just built) instead of caption to avoid None.
+                        chunk_caption = final_caption + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
@@ -219,13 +219,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Immediately delete the per-chunk progress messages.
+                        # Immediately delete the per-chunk progress messages (no delay).
                         try:
-                            await chunk_status_msg.delete()
-                        except Exception:
-                            pass
-                        try:
-                            await progress_status.delete()
+                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
                         except Exception:
                             pass
                     except Exception as chunk_error:
