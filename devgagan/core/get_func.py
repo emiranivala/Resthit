@@ -218,10 +218,18 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             except Exception:
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
-                        # Only after a successful upload (i.e. devgaganin is not None)
-                        if devgaganin is not None:
-                            await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
+                        # After successful upload update the progress message
+                        await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
+                        # Short delay to ensure the message update goes through
+                        await asyncio.sleep(0.5)
+                        try:
+                            await chunk_status_msg.delete()
+                        except Exception:
+                            pass
+                        try:
+                            await progress_status.delete()
+                        except Exception:
+                            pass
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
