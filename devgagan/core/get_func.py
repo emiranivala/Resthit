@@ -203,7 +203,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
+                        chunk_caption = final_caption + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
