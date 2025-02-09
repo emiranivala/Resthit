@@ -737,5 +737,5 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
-        del sessions[user_id].
+        del sessions[user_id]
  
