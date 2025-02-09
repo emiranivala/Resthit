@@ -56,6 +56,30 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     return chunk_files
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
+# ------------------------------------------------------------------
+# NEW PROGRESS BAR FUNCTION (for >2GB files)
+#
+# This override of progress_bar updates the provided progress message and, 
+# once the upload is complete (current >= total), deletes the progress message.
+# ------------------------------------------------------------------
+async def new_progress_bar(current, total, text, progress_status, start_time):
+    try:
+        percentage = (current / total) * 100
+        # Update the progress message text (you can customize the format as needed)
+        await progress_status.edit_text(
+            f"{text}\nCompleted : {current} / {total}\nBytes : {percentage:.2f}%\nSpeed : {(current / (time.time() - start_time)) / (1024 * 1024):.2f} MB/s"
+        )
+    except Exception:
+        pass
+    if current >= total:
+        try:
+            await progress_status.delete()
+        except Exception:
+            pass
+
+# Override the imported progress_bar with the new version.
+progress_bar = new_progress_bar
+
 # Helper function to delete a message after a delay
 async def delete_after(message, delay=2):
     await asyncio.sleep(delay)
@@ -218,8 +242,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             except Exception:
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
-                        await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Delete the per-chunk progress messages immediately.
+                        # Immediately delete the per-chunk progress messages.
                         try:
                             await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
                         except Exception:
@@ -235,7 +258,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                # Delete the large-file status messages immediately.
+                # Immediately delete the large-file status messages.
                 try:
                     await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
                 except Exception:
