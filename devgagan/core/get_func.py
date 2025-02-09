@@ -1,4 +1,3 @@
-
 import asyncio
 import time
 import os
@@ -197,11 +196,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
                 original_caption = msg.caption if msg.caption else ''
-                final_caption = f"{original_caption}"
-                replacements = load_replacement_words(chatx)
-                for word, replace_word in replacements.items():
-                    final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
+                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{original_caption}"
                 
                 for i, chunk in enumerate(chunk_files):
                     try:
@@ -224,8 +219,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Wait briefly and then delete the per-chunk progress messages.
-                        await asyncio.sleep(2)
+                        # Delete the per-chunk progress messages immediately.
                         try:
                             await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
                         except Exception:
@@ -241,8 +235,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                # Wait briefly then delete the large-file status messages.
-                await asyncio.sleep(2)
+                # Delete the large-file status messages immediately.
                 try:
                     await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
                 except Exception:
@@ -744,4 +737,5 @@ async def handle_user_input(event):
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
-        del sessions[user_id]
+        del sessions[user_id].
+ 
