@@ -56,25 +56,13 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     return chunk_files
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
-# ------------------------------------------------------------------------------
-# SAFE DELETE FUNCTION
-#
-# Tries to delete a message; if deletion fails (for example, lacking permissions),
-# then it edits the message to a blank text.
-# ------------------------------------------------------------------------------
-async def safe_delete(message):
+# Helper function to delete a message after a delay
+async def delete_after(message, delay=2):
+    await asyncio.sleep(delay)
     try:
         await message.delete()
     except Exception:
-        try:
-            await message.edit_text("")
-        except Exception:
-            pass
-
-# Helper function to delete a message after a delay (if needed elsewhere)
-async def delete_after(message, delay=2):
-    await asyncio.sleep(delay)
-    await safe_delete(message)
+        pass
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     edit = ""
@@ -196,9 +184,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     await edit.delete()
                 except Exception:
                     pass
-                # Send overall status messages.
+                # Send status messages for large file processing.
                 status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
                 status_msg2 = await app.send_message(sender, "Starting to split the file...")
+                
                 chunk_files = split_file(file, MAX_CHUNK_SIZE)
                 total_chunks = len(chunk_files)
                 status_msg3 = await app.send_message(sender, f"File split into {total_chunks} chunk(s).")
@@ -213,19 +202,19 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     final_caption = final_caption.replace(word, replace_word)
                 caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
                 
-                # Process each chunk
                 for i, chunk in enumerate(chunk_files):
                     try:
-                        # Create two status messages for this chunk.
+                        # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
                         chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                         
-                        # Send the chunk without a progress callback.
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
                             document=chunk,
-                            caption=chunk_caption
+                            caption=chunk_caption,
+                            progress=progress_bar,
+                            progress_args=('**Uploading...**', progress_status, time.time())
                         )
                         if msg.pinned_message:
                             try:
@@ -234,9 +223,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Immediately “safely delete” the two per-chunk status messages.
-                        await safe_delete(chunk_status_msg)
-                        await safe_delete(progress_status)
+                        # Wait briefly and then delete the per-chunk progress messages.
+                        await asyncio.sleep(2)
+                        try:
+                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
+                        except Exception:
+                            pass
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -248,10 +240,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                # Immediately safely delete the overall status messages.
-                await safe_delete(status_msg1)
-                await safe_delete(status_msg2)
-                await safe_delete(status_msg3)
+                # Wait briefly then delete the large-file status messages.
+                await asyncio.sleep(2)
+                try:
+                    await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
+                except Exception:
+                    pass
                 await app.send_message(sender, "All chunks uploaded successfully!")
                 return
             # ----------------- END LARGE FILE HANDLING -----------------
@@ -625,29 +619,53 @@ async def callback_query_handler(event):
     if event.data == b'setchat':
         await event.respond("Send me the ID of that chat:")
         sessions[user_id] = 'setchat'
+
     elif event.data == b'setrename':
         await event.respond("Send me the rename tag:")
         sessions[user_id] = 'setrename'
+
     elif event.data == b'setcaption':
         await event.respond("Send me the caption:")
         sessions[user_id] = 'setcaption'
+
     elif event.data == b'setreplacement':
         await event.respond("Send me the replacement words in the format: 'WORD(s)' 'REPLACEWORD'")
         sessions[user_id] = 'setreplacement'
+
     elif event.data == b'addsession':
         await event.respond("This method depreciated ... use /login")
     elif event.data == b'delete':
         await event.respond("Send words seperated by space to delete them from caption/filename ...")
         sessions[user_id] = 'deleteword'
+        
     elif event.data == b'logout':
         result = mcollection.delete_one({"user_id": user_id})
         if result.deleted_count > 0:
-            await event.respond("Logged out and deleted session successfully.")
+          await event.respond("Logged out and deleted session successfully.")
         else:
-            await event.respond("You are not logged in")
+          await event.respond("You are not logged in")   
+
     elif event.data == b'setthumb':
         pending_photos[user_id] = True
         await event.respond('Please send the photo you want to set as the thumbnail.')
+
+    elif event.data == b'reset':
+        try:
+            user_id_str = str(user_id)
+            collection.update_one(
+                {"_id": user_id},
+                {"$unset": {"delete_words": "", "replacement_words": ""}}
+            )
+            user_chat_ids.pop(user_id, None)
+            user_rename_preferences.pop(user_id_str, None)
+            user_caption_preferences.pop(user_id_str, None)
+            thumbnail_path = f"{user_id}.jpg"
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
+            await event.respond("✅ Reset successfully, to logout click /logout")
+        except Exception as e:
+            await event.respond(".")
+
     elif event.data == b'remthumb':
         try:
             os.remove(f'{user_id}.jpg')
@@ -673,6 +691,7 @@ async def handle_user_input(event):
     user_id = event.sender_id
     if user_id in sessions:
         session_type = sessions[user_id]
+
         if session_type == 'setchat':
             try:
                 chat_id = int(event.text)
@@ -680,14 +699,17 @@ async def handle_user_input(event):
                 await event.respond("Chat ID set successfully!")
             except ValueError:
                 await event.respond("Invalid chat ID!")
+        
         elif session_type == 'setrename':
             custom_rename_tag = event.text
             await set_rename_command(user_id, custom_rename_tag)
             await event.respond(f"Custom rename tag set to: {custom_rename_tag}")
+        
         elif session_type == 'setcaption':
             custom_caption = event.text
             await set_caption_command(user_id, custom_caption)
             await event.respond(f"Custom caption set to: {custom_caption}")
+
         elif session_type == 'setreplacement':
             match = re.match(r"'(.+)' '(.+)'", event.text)
             if not match:
@@ -702,6 +724,7 @@ async def handle_user_input(event):
                     replacements[word] = replace_word
                     save_replacement_words(user_id, replacements)
                     await event.respond(f"Replacement saved: '{word}' will be replaced with '{replace_word}'")
+
         elif session_type == 'addsession':
             session_data = {
                 "user_id": user_id,
@@ -719,5 +742,5 @@ async def handle_user_input(event):
             delete_words.update(words_to_delete)
             save_delete_words(user_id, delete_words)
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
+
         del sessions[user_id]
- 
