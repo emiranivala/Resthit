@@ -56,30 +56,6 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     return chunk_files
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
-# ------------------------------------------------------------------
-# NEW PROGRESS BAR FUNCTION (for >2GB files)
-#
-# This override of progress_bar updates the provided progress message and, 
-# once the upload is complete (current >= total), deletes the progress message.
-# ------------------------------------------------------------------
-async def new_progress_bar(current, total, text, progress_status, start_time):
-    try:
-        percentage = (current / total) * 100
-        # Update the progress message text (you can customize the format as needed)
-        await progress_status.edit_text(
-            f"{text}\nCompleted : {current} / {total}\nBytes : {percentage:.2f}%\nSpeed : {(current / (time.time() - start_time)) / (1024 * 1024):.2f} MB/s"
-        )
-    except Exception:
-        pass
-    if current >= total:
-        try:
-            await progress_status.delete()
-        except Exception:
-            pass
-
-# Override the imported progress_bar with the new version.
-progress_bar = new_progress_bar
-
 # Helper function to delete a message after a delay
 async def delete_after(message, delay=2):
     await asyncio.sleep(delay)
@@ -220,14 +196,18 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
                 original_caption = msg.caption if msg.caption else ''
-                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{original_caption}"
+                final_caption = f"{original_caption}"
+                replacements = load_replacement_words(chatx)
+                for word, replace_word in replacements.items():
+                    final_caption = final_caption.replace(word, replace_word)
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
                 
                 for i, chunk in enumerate(chunk_files):
                     try:
                         # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        chunk_caption = final_caption + f"\n\nPart {i+1} of {total_chunks}"
+                        chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
@@ -242,6 +222,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             except Exception:
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
+                        await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
                         # Immediately delete the per-chunk progress messages.
                         try:
                             await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
