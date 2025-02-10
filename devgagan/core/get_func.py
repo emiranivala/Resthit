@@ -203,7 +203,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
+                        # Changed "caption" to "final_caption" to avoid NoneType error.
+                        chunk_caption = final_caption + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
@@ -219,9 +220,12 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Await deletion of the per-chunk progress messages:
-                        await delete_after(chunk_status_msg, delay=2)
-                        await delete_after(progress_status, delay=2)
+                        # Wait briefly then delete the per-chunk progress messages in bulk.
+                        await asyncio.sleep(2)
+                        try:
+                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
+                        except Exception as e:
+                            print("Error deleting chunk progress messages", e)
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
