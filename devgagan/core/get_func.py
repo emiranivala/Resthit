@@ -219,9 +219,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Automatically delete the per-chunk progress messages after successful upload.
-                        asyncio.create_task(delete_after(chunk_status_msg, delay=2))
-                        asyncio.create_task(delete_after(progress_status, delay=2))
+                        # Await deletion of the per-chunk progress messages:
+                        await delete_after(chunk_status_msg, delay=2)
+                        await delete_after(progress_status, delay=2)
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -737,3 +737,4 @@ async def handle_user_input(event):
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
         del sessions[user_id]
+ 
