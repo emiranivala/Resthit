@@ -56,7 +56,7 @@ def split_file(file_path, chunk_size=MAX_CHUNK_SIZE):
     return chunk_files
 # ------------------- END UPDATED SPLIT FUNCTION -----------------------
 
-# Helper function to delete a message after a delay
+# Helper function: schedule deletion of a message after a delay.
 async def delete_after(message, delay=2):
     await asyncio.sleep(delay)
     try:
@@ -145,7 +145,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 progress=progress_bar,
                 progress_args=("**__Downloading: __**", edit, time.time()))
         
-            custom_rename_tag = get_user_rename_preference(chatx) or ''
+            custom_rename_tag = get_user_rename_preference(chatx)
             last_dot_index = str(file).rfind('.')
             if last_dot_index != -1 and last_dot_index != 0:
                 ggn_ext = str(file)[last_dot_index + 1:]
@@ -179,29 +179,35 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
+                # Delete the download progress message before starting the large file branch.
                 try:
                     await edit.delete()
                 except Exception:
                     pass
+                # Send status messages for large file processing.
                 status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
                 status_msg2 = await app.send_message(sender, "Starting to split the file...")
+                
                 chunk_files = split_file(file, MAX_CHUNK_SIZE)
                 total_chunks = len(chunk_files)
                 status_msg3 = await app.send_message(sender, f"File split into {total_chunks} chunk(s).")
                 
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
-                # Force custom_caption and original_caption to be strings:
-                custom_caption = get_user_caption_preference(sender) or ''
-                original_caption = msg.caption if msg.caption is not None else ''
-                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else original_caption
+                custom_caption = get_user_caption_preference(sender)
+                original_caption = msg.caption if msg.caption else ''
+                final_caption = f"{original_caption}"
+                replacements = load_replacement_words(chatx)
+                for word, replace_word in replacements.items():
+                    final_caption = final_caption.replace(word, replace_word)
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
                 
                 for i, chunk in enumerate(chunk_files):
                     try:
+                        # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        # Use (final_caption or '') to guarantee a string
-                        chunk_caption = (final_caption or '') + f"\n\nPart {i+1} of {total_chunks}"
+                        chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
@@ -217,11 +223,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        await asyncio.sleep(2)
-                        try:
-                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
-                        except Exception as e:
-                            print("Error deleting chunk progress messages", e)
+                        # Schedule deletion of the per‑chunk messages.
+                        asyncio.create_task(delete_after(chunk_status_msg))
+                        asyncio.create_task(delete_after(progress_status))
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -233,11 +237,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                await asyncio.sleep(2)
-                try:
-                    await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
-                except Exception:
-                    pass
+                # Schedule deletion of the large-file status messages.
+                asyncio.create_task(delete_after(status_msg1))
+                asyncio.create_task(delete_after(status_msg2))
+                asyncio.create_task(delete_after(status_msg3))
                 await app.send_message(sender, "All chunks uploaded successfully!")
                 return
             # ----------------- END LARGE FILE HANDLING -----------------
@@ -284,13 +287,14 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
                 
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender) or ''
-                original_caption = msg.caption if msg.caption is not None else ''
-                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else original_caption
+                custom_caption = get_user_caption_preference(sender)
+                original_caption = msg.caption if msg.caption else ''
+                final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
+                
                 replacements = load_replacement_words(sender)
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
 
                 target_chat_id = user_chat_ids.get(chatx, chatx)
                 
@@ -324,13 +328,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             elif msg.media == MessageMediaType.PHOTO:
                 await app.edit_message_text(sender, edit_id, "**Uploading photo...")
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender) or ''
-                original_caption = msg.caption if msg.caption is not None else ''
-                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else original_caption
+                custom_caption = get_user_caption_preference(sender)
+                original_caption = msg.caption if msg.caption else ''
+                final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
                 replacements = load_replacement_words(sender)
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
 
                 target_chat_ids = user_chat_ids.get(sender, sender)
                 devgaganin = await app.send_photo(chat_id=target_chat_ids, photo=file, caption=caption)
@@ -343,13 +347,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             else:
                 thumb_path = thumbnail(chatx)
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender) or ''
-                original_caption = msg.caption if msg.caption is not None else ''
-                final_caption = f"{original_caption}" if custom_caption == '' else f"{original_caption}\n\n__**{custom_caption}**__"
+                custom_caption = get_user_caption_preference(sender)
+                original_caption = msg.caption if msg.caption else ''
+                final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
                 replacements = load_replacement_words(chatx)
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
 
                 target_chat_id = user_chat_ids.get(chatx, chatx)
                 try:
@@ -437,9 +441,9 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
     
     try:
         msg = await client.get_messages(chat_id, message_id)
-        custom_caption = get_user_caption_preference(sender) or ''
-        original_caption = msg.caption if msg.caption is not None else ''
-        final_caption = f"{original_caption}" if custom_caption == '' else f"{original_caption}\n\n__**{custom_caption}**__"
+        custom_caption = get_user_caption_preference(sender)
+        original_caption = msg.caption if msg.caption else ''
+        final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
         
         delete_words = load_delete_words(sender)
         for word in delete_words:
@@ -449,7 +453,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
         for word, replace_word in replacements.items():
             final_caption = final_caption.replace(word, replace_word)
         
-        caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
+        caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
         
         if msg.media:
             if msg.media == MessageMediaType.VIDEO:
@@ -464,7 +468,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
             result = await client.copy_message(target_chat_id, chat_id, message_id)
 
         try:
-            await app.copy_message(LOG_GROUP, result.chat.id, result.message_id)
+            await result.copy(LOG_GROUP)
         except Exception:
             pass
             
@@ -639,6 +643,23 @@ async def callback_query_handler(event):
     elif event.data == b'setthumb':
         pending_photos[user_id] = True
         await event.respond('Please send the photo you want to set as the thumbnail.')
+
+    elif event.data == b'reset':
+        try:
+            user_id_str = str(user_id)
+            collection.update_one(
+                {"_id": user_id},
+                {"$unset": {"delete_words": "", "replacement_words": ""}}
+            )
+            user_chat_ids.pop(user_id, None)
+            user_rename_preferences.pop(user_id_str, None)
+            user_caption_preferences.pop(user_id_str, None)
+            thumbnail_path = f"{user_id}.jpg"
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
+            await event.respond("✅ Reset successfully, to logout click /logout")
+        except Exception as e:
+            await event.respond(".")
 
     elif event.data == b'remthumb':
         try:
