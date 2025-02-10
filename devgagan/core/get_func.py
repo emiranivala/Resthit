@@ -145,7 +145,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 progress=progress_bar,
                 progress_args=("**__Downloading: __**", edit, time.time()))
         
-            custom_rename_tag = get_user_rename_preference(chatx)
+            custom_rename_tag = get_user_rename_preference(chatx) or ''
             last_dot_index = str(file).rfind('.')
             if last_dot_index != -1 and last_dot_index != 0:
                 ggn_ext = str(file)[last_dot_index + 1:]
@@ -179,31 +179,28 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # Delete the download progress message before starting the large file branch.
                 try:
                     await edit.delete()
                 except Exception:
                     pass
-                # Send status messages for large file processing.
                 status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
                 status_msg2 = await app.send_message(sender, "Starting to split the file...")
-                
                 chunk_files = split_file(file, MAX_CHUNK_SIZE)
                 total_chunks = len(chunk_files)
                 status_msg3 = await app.send_message(sender, f"File split into {total_chunks} chunk(s).")
                 
                 target_chat_id = user_chat_ids.get(chatx, sender)
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender)
-                original_caption = msg.caption if msg.caption else ''
-                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{original_caption}"
+                # Force custom_caption and original_caption to be strings:
+                custom_caption = get_user_caption_preference(sender) or ''
+                original_caption = msg.caption if msg.caption is not None else ''
+                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else original_caption
                 
                 for i, chunk in enumerate(chunk_files):
                     try:
-                        # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        # Use (final_caption or '') to ensure it is not None.
+                        # Use (final_caption or '') to guarantee a string
                         chunk_caption = (final_caption or '') + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
@@ -220,16 +217,11 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Wait briefly then delete the per-chunk progress messages individually.
                         await asyncio.sleep(2)
                         try:
-                            await chunk_status_msg.delete()
+                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
                         except Exception as e:
-                            print("Error deleting chunk_status_msg", e)
-                        try:
-                            await progress_status.delete()
-                        except Exception as e:
-                            print("Error deleting progress_status", e)
+                            print("Error deleting chunk progress messages", e)
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -241,7 +233,6 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 
                 if os.path.exists(file):
                     os.remove(file)
-                # Wait briefly then delete the large-file status messages.
                 await asyncio.sleep(2)
                 try:
                     await app.delete_messages(sender, [status_msg1.id, status_msg2.id, status_msg3.id])
@@ -293,14 +284,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     return
                 
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender)
-                original_caption = msg.caption if msg.caption else ''
-                final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
-                
+                custom_caption = get_user_caption_preference(sender) or ''
+                original_caption = msg.caption if msg.caption is not None else ''
+                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else original_caption
                 replacements = load_replacement_words(sender)
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
 
                 target_chat_id = user_chat_ids.get(chatx, chatx)
                 
@@ -334,13 +324,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             elif msg.media == MessageMediaType.PHOTO:
                 await app.edit_message_text(sender, edit_id, "**Uploading photo...")
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender)
-                original_caption = msg.caption if msg.caption else ''
-                final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
+                custom_caption = get_user_caption_preference(sender) or ''
+                original_caption = msg.caption if msg.caption is not None else ''
+                final_caption = f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else original_caption
                 replacements = load_replacement_words(sender)
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
 
                 target_chat_ids = user_chat_ids.get(sender, sender)
                 devgaganin = await app.send_photo(chat_id=target_chat_ids, photo=file, caption=caption)
@@ -353,13 +343,13 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             else:
                 thumb_path = thumbnail(chatx)
                 delete_words = load_delete_words(sender)
-                custom_caption = get_user_caption_preference(sender)
-                original_caption = msg.caption if msg.caption else ''
-                final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
+                custom_caption = get_user_caption_preference(sender) or ''
+                original_caption = msg.caption if msg.caption is not None else ''
+                final_caption = f"{original_caption}" if custom_caption == '' else f"{original_caption}\n\n__**{custom_caption}**__"
                 replacements = load_replacement_words(chatx)
                 for word, replace_word in replacements.items():
                     final_caption = final_caption.replace(word, replace_word)
-                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
+                caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
 
                 target_chat_id = user_chat_ids.get(chatx, chatx)
                 try:
@@ -447,9 +437,9 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
     
     try:
         msg = await client.get_messages(chat_id, message_id)
-        custom_caption = get_user_caption_preference(sender)
-        original_caption = msg.caption if msg.caption else ''
-        final_caption = f"{original_caption}" if custom_caption else f"{original_caption}"
+        custom_caption = get_user_caption_preference(sender) or ''
+        original_caption = msg.caption if msg.caption is not None else ''
+        final_caption = f"{original_caption}" if custom_caption == '' else f"{original_caption}\n\n__**{custom_caption}**__"
         
         delete_words = load_delete_words(sender)
         for word in delete_words:
@@ -459,7 +449,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
         for word, replace_word in replacements.items():
             final_caption = final_caption.replace(word, replace_word)
         
-        caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
+        caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption != '' else final_caption
         
         if msg.media:
             if msg.media == MessageMediaType.VIDEO:
@@ -474,7 +464,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
             result = await client.copy_message(target_chat_id, chat_id, message_id)
 
         try:
-            await result.copy(LOG_GROUP)
+            await app.copy_message(LOG_GROUP, result.chat.id, result.message_id)
         except Exception:
             pass
             
