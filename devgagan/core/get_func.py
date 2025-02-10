@@ -203,8 +203,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
-                        # Changed "caption" to "final_caption" to avoid NoneType error.
-                        chunk_caption = final_caption + f"\n\nPart {i+1} of {total_chunks}"
+                        # Use (final_caption or '') to ensure it is not None.
+                        chunk_caption = (final_caption or '') + f"\n\nPart {i+1} of {total_chunks}"
                         
                         devgaganin = await app.send_document(
                             chat_id=target_chat_id,
@@ -220,12 +220,16 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin()
                         await devgaganin.copy(LOG_GROUP)
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Wait briefly then delete the per-chunk progress messages in bulk.
+                        # Wait briefly then delete the per-chunk progress messages individually.
                         await asyncio.sleep(2)
                         try:
-                            await app.delete_messages(sender, [chunk_status_msg.id, progress_status.id])
+                            await chunk_status_msg.delete()
                         except Exception as e:
-                            print("Error deleting chunk progress messages", e)
+                            print("Error deleting chunk_status_msg", e)
+                        try:
+                            await progress_status.delete()
+                        except Exception as e:
+                            print("Error deleting progress_status", e)
                     except Exception as chunk_error:
                         if "PEER_ID_INVALID" in str(chunk_error):
                             pass
@@ -646,23 +650,6 @@ async def callback_query_handler(event):
         pending_photos[user_id] = True
         await event.respond('Please send the photo you want to set as the thumbnail.')
 
-    elif event.data == b'reset':
-        try:
-            user_id_str = str(user_id)
-            collection.update_one(
-                {"_id": user_id},
-                {"$unset": {"delete_words": "", "replacement_words": ""}}
-            )
-            user_chat_ids.pop(user_id, None)
-            user_rename_preferences.pop(user_id_str, None)
-            user_caption_preferences.pop(user_id_str, None)
-            thumbnail_path = f"{user_id}.jpg"
-            if os.path.exists(thumbnail_path):
-                os.remove(thumbnail_path)
-            await event.respond("✅ Reset successfully, to logout click /logout")
-        except Exception as e:
-            await event.respond(".")
-
     elif event.data == b'remthumb':
         try:
             os.remove(f'{user_id}.jpg')
@@ -741,4 +728,3 @@ async def handle_user_input(event):
             await event.respond(f"Words added to delete list: {', '.join(words_to_delete)}")
 
         del sessions[user_id]
- 
