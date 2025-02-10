@@ -100,7 +100,8 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await m.pin(both_sides=True)
                         except Exception:
                             await m.pin()
-                    await m.copy(LOG_GROUP)
+                    # Copying to log group using app.copy_message
+                    await app.copy_message(LOG_GROUP, m.chat.id, m.message_id)
                     try:
                         await edit.delete()
                     except Exception:
@@ -125,7 +126,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await m.pin(both_sides=True)
                         except Exception:
                             await m.pin()
-                    await m.copy(LOG_GROUP)
+                    await app.copy_message(LOG_GROUP, m.chat.id, m.message_id)
                     try:
                         await edit.delete()
                     except Exception:
@@ -220,7 +221,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             except Exception:
                                 await devgaganin.pin()
                         try:
-                            await devgaganin.copy(LOG_GROUP)
+                            await app.copy_message(LOG_GROUP, devgaganin.chat.id, devgaganin.message_id)
                         except Exception as e:
                             print(f"Error copying chunk to LOG_GROUP: {e}")
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
@@ -272,7 +273,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except Exception:
                             await devgaganin.pin()
                     try:
-                        await devgaganin.copy(LOG_GROUP)
+                        await app.copy_message(LOG_GROUP, devgaganin.chat.id, devgaganin.message_id)
                     except Exception as e:
                         print(f"Error copying video to LOG_GROUP: {e}")
                     try:
@@ -320,7 +321,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         except Exception:
                             await devgaganin.pin()
                     try:
-                        await devgaganin.copy(LOG_GROUP)
+                        await app.copy_message(LOG_GROUP, devgaganin.chat.id, devgaganin.message_id)
                     except Exception as e:
                         print(f"Error copying video to LOG_GROUP: {e}")
                 except Exception:
@@ -349,7 +350,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     except Exception:
                         await devgaganin.pin()                
                 try:
-                    await devgaganin.copy(LOG_GROUP)
+                    await app.copy_message(LOG_GROUP, devgaganin.chat.id, devgaganin.message_id)
                 except Exception as e:
                     print(f"Error copying photo to LOG_GROUP: {e}")
             else:
@@ -476,7 +477,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
             result = await client.copy_message(target_chat_id, chat_id, message_id)
 
         try:
-            await result.copy(LOG_GROUP)
+            await app.copy_message(LOG_GROUP, result.chat.id, result.message_id)
         except Exception:
             pass
             
