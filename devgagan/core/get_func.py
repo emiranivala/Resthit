@@ -179,12 +179,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             # ----------------- LARGE FILE HANDLING -----------------
             file_size = os.path.getsize(file)
             if file_size > 2 * 1024**3:
-                # Delete the download progress message before starting the large file branch.
                 try:
                     await edit.delete()
                 except Exception:
                     pass
-                # Send status messages for large file processing.
                 status_msg1 = await app.send_message(sender, f"Large file detected (> {file_size/1024**3:.2f} GB). Splitting into 2GB chunks...")
                 status_msg2 = await app.send_message(sender, "Starting to split the file...")
                 
@@ -202,9 +200,9 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                     final_caption = final_caption.replace(word, replace_word)
                 caption = f"{final_caption}\n\n__**{custom_caption}**__" if custom_caption else f"{final_caption}"
                 
+                upload_failed = False
                 for i, chunk in enumerate(chunk_files):
                     try:
-                        # Send per-chunk status messages.
                         chunk_status_msg = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks}...")
                         progress_status = await app.send_message(sender, f"Uploading chunk {i+1} of {total_chunks} ...")
                         chunk_caption = caption + f"\n\nPart {i+1} of {total_chunks}"
@@ -221,27 +219,28 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                                 await devgaganin.pin(both_sides=True)
                             except Exception:
                                 await devgaganin.pin()
-                        await devgaganin.copy(LOG_GROUP)
+                        try:
+                            await app.copy_message(LOG_GROUP, target_chat_id, devgaganin.message_id)
+                        except Exception as e:
+                            print(f"Error copying chunk to LOG_GROUP: {e}")
                         await app.edit_message_text(sender, progress_status.id, f"Chunk {i+1} of {total_chunks} uploaded successfully!")
-                        # Schedule deletion of the per‑chunk messages.
                         asyncio.create_task(delete_after(chunk_status_msg))
                         asyncio.create_task(delete_after(progress_status))
                     except Exception as chunk_error:
-                        if "PEER_ID_INVALID" in str(chunk_error):
-                            pass
-                        else:
-                            await app.send_message(sender, f"Error uploading chunk {i+1}: {chunk_error}")
+                        upload_failed = True
+                        await app.send_message(sender, f"Error uploading chunk {i+1}: {chunk_error}")
                     finally:
                         if os.path.exists(chunk):
                             os.remove(chunk)
                 
                 if os.path.exists(file):
                     os.remove(file)
-                # Schedule deletion of the large-file status messages.
-                asyncio.create_task(delete_after(status_msg1))
-                asyncio.create_task(delete_after(status_msg2))
-                asyncio.create_task(delete_after(status_msg3))
-                await app.send_message(sender, "All chunks uploaded successfully!")
+                if not upload_failed:
+                    asyncio.create_task(delete_after(status_msg1))
+                    asyncio.create_task(delete_after(status_msg2))
+                    asyncio.create_task(delete_after(status_msg3))
+                    final_status = await app.send_message(sender, "All chunks uploaded successfully!")
+                    asyncio.create_task(delete_after(final_status))
                 return
             # ----------------- END LARGE FILE HANDLING -----------------
 
@@ -272,7 +271,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin(both_sides=True)
                         except Exception:
                             await devgaganin.pin()
-                    await devgaganin.copy(LOG_GROUP)
+                    try:
+                        await app.copy_message(LOG_GROUP, sender, devgaganin.message_id)
+                    except Exception as e:
+                        print(f"Error copying video to LOG_GROUP: {e}")
                     try:
                         await edit.delete()
                     except Exception:
@@ -317,7 +319,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                             await devgaganin.pin(both_sides=True)
                         except Exception:
                             await devgaganin.pin()
-                    await devgaganin.copy(LOG_GROUP)
+                    try:
+                        await app.copy_message(LOG_GROUP, target_chat_id, devgaganin.message_id)
+                    except Exception as e:
+                        print(f"Error copying video to LOG_GROUP: {e}")
                 except Exception:
                     try:
                         await app.edit_message_text(sender, edit_id, ".")
@@ -326,7 +331,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                 os.remove(file)
                     
             elif msg.media == MessageMediaType.PHOTO:
-                await app.edit_message_text(sender, edit_id, "**Uploading photo...")
+                await app.edit_message_text(sender, edit_id, "**Uploading photo...**")
                 delete_words = load_delete_words(sender)
                 custom_caption = get_user_caption_preference(sender)
                 original_caption = msg.caption if msg.caption else ''
@@ -343,7 +348,10 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
                         await devgaganin.pin(both_sides=True)
                     except Exception:
                         await devgaganin.pin()                
-                await devgaganin.copy(LOG_GROUP)
+                try:
+                    await app.copy_message(LOG_GROUP, target_chat_ids, devgaganin.message_id)
+                except Exception as e:
+                    print(f"Error copying photo to LOG_GROUP: {e}")
             else:
                 thumb_path = thumbnail(chatx)
                 delete_words = load_delete_words(sender)
@@ -468,7 +476,7 @@ async def copy_message_with_chat_id(client, sender, chat_id, message_id):
             result = await client.copy_message(target_chat_id, chat_id, message_id)
 
         try:
-            await result.copy(LOG_GROUP)
+            await app.copy_message(LOG_GROUP, target_chat_id, result.message_id)
         except Exception:
             pass
             
